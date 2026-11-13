@@ -1,9 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import { useLeague } from "@/components/LeagueProvider";
-import { Empty, PageTitle } from "@/components/ui";
 import Link from "next/link";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useChaos } from "@/components/ChaosEngine";
+import { useLeague } from "@/components/LeagueProvider";
+import { PixelIcon } from "@/components/PixelArt";
+import { Empty, PageTitle } from "@/components/ui";
 
 function randomInt(max: number): number {
   const buf = new Uint32Array(1);
@@ -16,8 +18,10 @@ function randomInt(max: number): number {
 /** Picks who deals the cards. Purely local: never touches matches, stats or achievements. */
 export default function DrawPage() {
   const { activePlayers, loaded } = useLeague();
-  const [off, setOff] = useState<Set<string>>(new Set()); // deselected players (new players are included by default)
+  const { sfx, triggerCelebration } = useChaos();
+  const [off, setOff] = useState<Set<string>>(new Set());
   const [shown, setShown] = useState<string | null>(null);
+  const [spinStep, setSpinStep] = useState(0);
   const [winner, setWinner] = useState<string | null>(null);
   const [spinning, setSpinning] = useState(false);
   const [err, setErr] = useState("");
@@ -45,17 +49,20 @@ export default function DrawPage() {
     setWinner(null);
     setSpinning(true);
     const pool = chosen.map((p) => p.name);
-    const target = randomInt(pool.length); // only selected players are eligible
+    const target = randomInt(pool.length);
     const steps = 20 + randomInt(8);
     let i = 0;
     const tick = () => {
       i++;
+      setSpinStep(i);
       if (i >= steps) {
         setShown(pool[target]);
         setWinner(pool[target]);
         setSpinning(false);
+        triggerCelebration("draw");
         return;
       }
+      sfx("drawTick");
       setShown(pool[randomInt(pool.length)]);
       timer.current = setTimeout(tick, 60 + i * i * 0.55);
     };
@@ -64,47 +71,89 @@ export default function DrawPage() {
 
   return (
     <div className="stack">
-      <PageTitle sub="اختر اللاعبين المشاركين، ثم اضغط للقرعة لمعرفة من سيوزّع الأوراق. لا يؤثر هذا على الإحصائيات أو الترتيب.">🎲 دق الولد</PageTitle>
+      <PageTitle
+        pixelIcon="dice"
+        sub="اختر اللاعبين المشاركين، ثم اضغط للقرعة لمعرفة من سيوزّع الأوراق. لا يؤثر هذا على الإحصائيات أو الترتيب."
+      >
+        دق الولد
+      </PageTitle>
 
       <div className="card text-center">
-        <div className="grid min-h-[150px] place-items-center">
+        <div className="mb-3 grid min-h-[170px] place-items-center border-2 border-line bg-bg p-4">
           {winner ? (
-            <div className="reveal">
-              <div className="text-sm text-muted">الموزّع هو</div>
-              <div className="my-1 text-5xl font-extrabold text-accent-text sm:text-6xl">🃏 {winner}</div>
+            <div className="reveal flex flex-col items-center gap-2">
+              <div className="flex items-center gap-1.5 text-sm font-bold text-muted">
+                <PixelIcon name="crown" size={18} />
+                <span>الموزّع هو</span>
+              </div>
+              <div className="my-1 flex items-center gap-3 font-pixel-ar text-5xl font-extrabold text-accent-text sm:text-6xl">
+                <PixelIcon name="cards" size={40} />
+                <span>{winner}</span>
+              </div>
             </div>
           ) : spinning && shown ? (
-            <div key={shown + Math.random()} className="rolling text-4xl font-extrabold sm:text-5xl">{shown}</div>
+            <div key={spinStep} className="rolling font-pixel-ar text-4xl font-extrabold sm:text-5xl">
+              {shown}
+            </div>
           ) : (
-            <div className="text-lg text-muted">اضغط «دق الولد» لبدء القرعة</div>
+            <div className="flex flex-col items-center gap-2 text-lg text-muted">
+              <PixelIcon name="dice" size={36} />
+              <span>اضغط «دق الولد» لبدء القرعة</span>
+            </div>
           )}
         </div>
-        {err && <p role="alert" className="mb-2 text-sm font-bold text-bad">{err}</p>}
+        {err && (
+          <p role="alert" className="mb-2 text-sm font-bold text-bad">
+            {err}
+          </p>
+        )}
         <button className="btn btn-primary w-full !min-h-[56px] text-lg" onClick={spin} disabled={spinning}>
-          {spinning ? "جارٍ الدق…" : winner ? "🔁 إعادة القرعة" : "🎲 دق الولد"}
+          <PixelIcon name="dice" size={22} />
+          <span>{spinning ? "جارٍ الدق…" : winner ? "إعادة القرعة" : "دق الولد"}</span>
         </button>
       </div>
 
       <div className="card">
         <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-          <h2 className="font-extrabold">اللاعبون المشاركون <span className="chip tnum">{chosen.length} / {activePlayers.length}</span></h2>
+          <h2 className="flex items-center gap-2 font-pixel-ar text-xl font-extrabold">
+            <PixelIcon name="players" size={18} />
+            <span>اللاعبون المشاركون</span>
+            <span className="chip chip-accent tnum">
+              {chosen.length} / {activePlayers.length}
+            </span>
+          </h2>
           <div className="flex gap-2">
-            <button className="btn btn-sm" onClick={() => !spinning && setOff(new Set())}>تحديد الكل</button>
-            <button className="btn btn-sm" onClick={() => !spinning && setOff(new Set(activePlayers.map((p) => p.id)))}>إلغاء الكل</button>
+            <button className="btn btn-sm" onClick={() => !spinning && setOff(new Set())}>
+              تحديد الكل
+            </button>
+            <button
+              className="btn btn-sm"
+              onClick={() => !spinning && setOff(new Set(activePlayers.map((p) => p.id)))}
+            >
+              إلغاء الكل
+            </button>
           </div>
         </div>
         {!loaded ? (
           <div className="skel h-20 w-full" />
         ) : activePlayers.length === 0 ? (
           <Empty title="لا يوجد لاعبون بعد">
-            <Link href="/players" className="btn btn-primary">أضف لاعبين</Link>
+            <Link href="/players" className="btn btn-primary">
+              أضف لاعبين
+            </Link>
           </Empty>
         ) : (
           <div className="flex flex-wrap gap-2">
             {activePlayers.map((p) => {
               const on = !off.has(p.id);
               return (
-                <button key={p.id} role="checkbox" aria-checked={on} onClick={() => toggle(p.id)} className={`btn ${on ? "btn-primary" : "opacity-70"}`}>
+                <button
+                  key={p.id}
+                  role="checkbox"
+                  aria-checked={on}
+                  onClick={() => toggle(p.id)}
+                  className={`btn ${on ? "btn-primary" : "opacity-70"}`}
+                >
                   {on ? "✓" : "○"} {p.name}
                 </button>
               );

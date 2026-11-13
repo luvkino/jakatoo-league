@@ -8,6 +8,7 @@ import {
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
   type ReactNode,
 } from "react";
 import { call, type Res } from "@/lib/client";
@@ -79,6 +80,30 @@ export const useLeague = () => {
 };
 
 const SCOPE_KEY = "jl_scope";
+const scopeListeners = new Set<() => void>();
+const readScopeStore = (): string => {
+  if (typeof window === "undefined") return "";
+  try {
+    return localStorage.getItem(SCOPE_KEY) ?? "";
+  } catch {
+    return "";
+  }
+};
+const subscribeScope = (cb: () => void) => {
+  scopeListeners.add(cb);
+  return () => {
+    scopeListeners.delete(cb);
+  };
+};
+const writeScopeStore = (val: string) => {
+  try {
+    if (val) localStorage.setItem(SCOPE_KEY, val);
+    else localStorage.removeItem(SCOPE_KEY);
+  } catch {
+    /* ignore */
+  }
+  for (const cb of scopeListeners) cb();
+};
 const unlockKey = (u: Unlock) => `${u.seasonId}|${u.playerId}|${u.key}`;
 
 interface DataRes {
@@ -95,7 +120,7 @@ export function LeagueProvider({ children }: { children: ReactNode }) {
   const [loaded, setLoaded] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [admin, setAdmin] = useState<AdminState>("unknown");
-  const [scopeRaw, setScopeRaw] = useState("");
+  const scopeRaw = useSyncExternalStore(subscribeScope, readScopeStore, () => "");
   const [toasts, setToasts] = useState<Toast[]>([]);
 
   const pending = useRef(0);
@@ -103,7 +128,9 @@ export function LeagueProvider({ children }: { children: ReactNode }) {
   const inflight = useRef<Promise<void> | null>(null);
   const toastId = useRef(0);
   const snapshot = useRef({ players, matches, seasons });
-  snapshot.current = { players, matches, seasons };
+  useEffect(() => {
+    snapshot.current = { players, matches, seasons };
+  }, [players, matches, seasons]);
 
   const toast = useCallback((msg: string, kind: Toast["kind"] = "info") => {
     const id = ++toastId.current;
@@ -144,11 +171,6 @@ export function LeagueProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    try {
-      setScopeRaw(localStorage.getItem(SCOPE_KEY) ?? "");
-    } catch {
-      /* ignore */
-    }
     // Session does not depend on the DB, so the admin is recognised even if the DB is down.
     call<{ isAdmin: boolean }>("/api/session", undefined, 1).then((r) => {
       if (r.ok) setAdmin(r.isAdmin ? "admin" : "viewer");
@@ -176,12 +198,7 @@ export function LeagueProvider({ children }: { children: ReactNode }) {
     return activeSeason?.id ?? "all";
   }, [scopeRaw, seasons, activeSeason]);
   const setScope = useCallback((s: string) => {
-    setScopeRaw(s);
-    try {
-      localStorage.setItem(SCOPE_KEY, s);
-    } catch {
-      /* ignore */
-    }
+    writeScopeStore(s);
   }, []);
   const scopeMatches = useMemo(
     () => (scope === "all" ? matches : matches.filter((m) => m.seasonId === scope)),
@@ -326,12 +343,7 @@ export function LeagueProvider({ children }: { children: ReactNode }) {
     async (name: string, startDate?: string) => {
       const r = await mutate("/api/seasons", "POST", { name, startDate });
       if (r.ok) {
-        setScopeRaw("");
-        try {
-          localStorage.removeItem(SCOPE_KEY);
-        } catch {
-          /* ignore */
-        }
+        writeScopeStore("");
         await refresh();
       }
       return r;
