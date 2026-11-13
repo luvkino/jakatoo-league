@@ -2,14 +2,11 @@
 
 import { useRef, useState, type FormEvent } from "react";
 import { useLeague } from "@/components/LeagueProvider";
+import { PixelIcon } from "@/components/PixelArt";
 import { LoginButton } from "@/components/Shell";
 
 /**
  * Add a player: type a name, press the button or Enter. Nothing else is required.
- * - The form is shown to the admin as soon as the session is known; while the
- *   session is loading a skeleton is shown (it never stays hidden).
- * - Success is only shown after the server confirmed the write.
- * - On failure the typed name is preserved and a precise Arabic error is shown.
  */
 export default function PlayerAdd({ compact = false }: { compact?: boolean }) {
   const { admin, addPlayer, players, toast } = useLeague();
@@ -21,7 +18,7 @@ export default function PlayerAdd({ compact = false }: { compact?: boolean }) {
 
   async function submit(e?: FormEvent) {
     e?.preventDefault();
-    if (lock.current) return; // prevent duplicate submissions while saving
+    if (lock.current) return;
     lock.current = true;
     setBusy(true);
     setMsg(null);
@@ -33,7 +30,7 @@ export default function PlayerAdd({ compact = false }: { compact?: boolean }) {
         toast(`✅ تمت إضافة اللاعب «${r.player.name}»`, "ok");
         input.current?.focus();
       } else {
-        setMsg({ kind: "err", text: r.message }); // typed name is preserved
+        setMsg({ kind: "err", text: r.message });
       }
     } finally {
       lock.current = false;
@@ -52,9 +49,14 @@ export default function PlayerAdd({ compact = false }: { compact?: boolean }) {
   if (admin === "viewer") {
     return (
       <div className="card flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <div className="font-bold">إضافة لاعب</div>
-          <div className="text-sm text-muted">إضافة اللاعبين متاحة للمشرف فقط. سجّل الدخول للمتابعة.</div>
+        <div className="flex items-center gap-3">
+          <div className="grid h-10 w-10 place-items-center border-2 border-line bg-card2">
+            <PixelIcon name="players" size={22} />
+          </div>
+          <div>
+            <div className="font-extrabold">إضافة لاعب</div>
+            <div className="text-sm text-muted">إضافة اللاعبين متاحة للمشرف فقط. سجّل الدخول للمتابعة.</div>
+          </div>
         </div>
         <LoginButton />
       </div>
@@ -64,10 +66,11 @@ export default function PlayerAdd({ compact = false }: { compact?: boolean }) {
   return (
     <form onSubmit={submit} className="card" aria-label="إضافة لاعب">
       <div className="mb-2 flex items-center justify-between">
-        <label htmlFor={compact ? "new-player-quick" : "new-player"} className="font-extrabold">
-          ➕ إضافة لاعب
+        <label htmlFor={compact ? "new-player-quick" : "new-player"} className="flex items-center gap-2 font-extrabold">
+          <PixelIcon name="players" size={18} />
+          <span>إضافة لاعب جديد</span>
         </label>
-        <span className="chip tnum" data-testid="player-count">
+        <span className="chip chip-accent tnum" data-testid="player-count">
           {players.filter((p) => !p.archived).length} لاعب
         </span>
       </div>
@@ -92,7 +95,10 @@ export default function PlayerAdd({ compact = false }: { compact?: boolean }) {
         </button>
       </div>
       {msg && (
-        <p role={msg.kind === "err" ? "alert" : "status"} className={`mt-2 text-sm font-bold ${msg.kind === "err" ? "text-bad" : "text-good"}`}>
+        <p
+          role={msg.kind === "err" ? "alert" : "status"}
+          className={`mt-2 text-sm font-bold ${msg.kind === "err" ? "text-bad" : "text-good"}`}
+        >
           {msg.kind === "err" ? "⚠️ " : "✅ "}
           {msg.text}
         </p>
