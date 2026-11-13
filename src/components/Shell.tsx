@@ -101,7 +101,12 @@ export default function Shell({ children }: { children: ReactNode }) {
     <div className="mx-auto flex min-h-dvh w-full max-w-6xl flex-col px-3 pb-24 sm:px-5 lg:pb-8">
       <header className="sticky top-0 z-30 -mx-3 border-b-2 border-line bg-bg/95 px-3 py-2 backdrop-blur sm:-mx-5 sm:px-5">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <Link href="/" className="flex items-center gap-2 text-accent-text hover:brightness-110" dir="ltr">
+          <Link
+            href="/"
+            className="flex items-center gap-2 text-accent-text hover:brightness-110"
+            dir="ltr"
+            data-egg-logo
+          >
             <PixelIcon name="cards" size={24} />
             <span className="font-pixel-en text-xs font-bold tracking-wider sm:text-sm">JACKAROO LEAGUE</span>
             <span className="hidden border border-accent/60 bg-accent/15 px-1.5 py-0.5 font-pixel-en text-[9px] text-accent-text sm:inline-block">

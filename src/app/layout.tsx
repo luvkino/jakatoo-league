@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 import "./globals.css";
 import { ChaosProvider } from "@/components/ChaosEngine";
+import { EasterEggProvider } from "@/components/easter/EasterEggProvider";
 import { LeagueProvider } from "@/components/LeagueProvider";
 import { SettingsProvider, THEME_BOOT_SCRIPT } from "@/components/Settings";
 import Shell from "@/components/Shell";
@@ -29,7 +30,9 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         <SettingsProvider>
           <LeagueProvider>
             <ChaosProvider>
-              <Shell>{children}</Shell>
+              <EasterEggProvider>
+                <Shell>{children}</Shell>
+              </EasterEggProvider>
             </ChaosProvider>
           </LeagueProvider>
         </SettingsProvider>
