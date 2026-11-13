@@ -419,3 +419,178 @@ button:focus-visible {
     gap: 0.5rem;
   }
 }
+
+/* ============================================================ */
+/* ---- SECRET EASTER EGGS — fully isolated additive layer ----- */
+/* (every class is egg- prefixed; nothing here touches the      */
+/*  league layout or components above)                          */
+/* ============================================================ */
+
+/* ---- Blackjack secret table ---- */
+.egg-felt {
+  background: radial-gradient(ellipse at 50% 0%, #1d4d33 0%, #123524 55%, #0c2318 100%);
+}
+.egg-card {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: clamp(2.7rem, 9vw, 3.4rem);
+  height: calc(clamp(2.7rem, 9vw, 3.4rem) * 1.42);
+  background: #f8fafc;
+  border: 2px solid #334155;
+  border-radius: 3px;
+  box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.45), inset 0 0 0 2px #ffffff;
+}
+.egg-card-red { color: #dc2626; }
+.egg-card-black { color: #1e293b; }
+.egg-card-rank { font-size: 0.8rem; font-weight: 700; line-height: 1; }
+.egg-card-rank-b {
+  position: absolute;
+  bottom: 0.14rem;
+  inset-inline-end: 0.22rem;
+  transform: rotate(180deg);
+  font-size: 0.58rem;
+  opacity: 0.7;
+}
+.egg-card-back {
+  background: repeating-linear-gradient(45deg, #1d4ed8 0 4px, #1e40af 4px 8px);
+  border-color: #1e3a8a;
+  box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.45), inset 0 0 0 2px #3b82f6;
+}
+@keyframes egg-card-deal {
+  from { transform: translateY(-130%) rotate(-10deg); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+.egg-card-deal { animation: egg-card-deal 0.3s steps(4) backwards; }
+
+/* ---- Developer room CRT terminal ---- */
+.egg-crt { box-shadow: inset 0 0 3rem rgba(34, 197, 94, 0.14); }
+.egg-term-line {
+  font-family: var(--font-pixel-en);
+  font-size: clamp(0.62rem, 2.4vw, 0.78rem);
+  line-height: 1.6;
+  color: #4ade80;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.egg-term-input { caret-color: transparent; }
+.egg-caret {
+  display: inline-block;
+  width: 0.55em;
+  height: 1em;
+  background: #4ade80;
+  vertical-align: text-bottom;
+  animation: egg-caret-blink 1s steps(2) infinite;
+}
+.egg-caret-inline { display: inline-block; }
+@keyframes egg-caret-blink { 50% { opacity: 0; } }
+.egg-scanlines {
+  background: repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.22) 0 2px, transparent 2px 4px);
+}
+
+/* ---- Glitch mode (overlay-only: backdrop filters distort what's behind
+       without ever moving or blocking the real UI) ---- */
+.egg-glitch-bar {
+  background: rgba(255, 255, 255, 0.05);
+  border-block: 1px solid rgba(255, 255, 255, 0.18);
+  backdrop-filter: hue-rotate(90deg) saturate(1.9) contrast(1.25);
+}
+.egg-glitch-pane {
+  position: absolute;
+  inset: 0;
+  backdrop-filter: invert(0.09) hue-rotate(120deg) saturate(1.6);
+  animation: egg-pane-blink 0.55s steps(2) infinite;
+}
+@keyframes egg-pane-blink { 0%, 100% { opacity: 0; } 50% { opacity: 0.65; } }
+.egg-glitch-title {
+  color: #e2e8f0;
+  text-shadow: 3px 0 #f43f5e, -3px 0 #38bdf8, 0 0 10px rgba(255, 255, 255, 0.35);
+  animation: egg-glitch-jitter 0.31s steps(3) infinite;
+}
+@keyframes egg-glitch-jitter {
+  0%, 100% { transform: translate(0, 0); }
+  33% { transform: translate(3px, -2px); }
+  66% { transform: translate(-3px, 2px); }
+}
+.egg-fake-error { animation: egg-fake-error-in 0.18s steps(3); }
+@keyframes egg-fake-error-in { from { opacity: 0; transform: scale(0.9); } }
+
+/* ---- UFO invasion ---- */
+@keyframes egg-ufo-fly-ltr { from { transform: translateX(-20vw); } to { transform: translateX(120vw); } }
+@keyframes egg-ufo-fly-rtl { from { transform: translateX(120vw); } to { transform: translateX(-20vw); } }
+@keyframes egg-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+.egg-bob { animation: egg-bob 1.6s ease-in-out infinite; }
+@keyframes egg-mothership-descend { from { transform: translateY(-110%); } to { transform: translateY(8vh); } }
+.egg-mothership { animation: egg-mothership-descend 2s steps(10) forwards; }
+.egg-abduction-beam {
+  width: min(46vw, 300px);
+  height: 68vh;
+  margin-top: -4px;
+  background: linear-gradient(to bottom, rgba(163, 230, 53, 0.6), rgba(163, 230, 53, 0.12) 60%, transparent);
+  clip-path: polygon(38% 0, 62% 0, 100% 100%, 0 100%);
+  animation: egg-beam-pulse 0.5s steps(3) infinite;
+}
+@keyframes egg-beam-pulse { 50% { opacity: 0.5; } }
+.egg-abduction-flash {
+  position: fixed;
+  inset: 0;
+  background: #ffffff;
+  opacity: 0;
+  animation: egg-flash-blink 0.4s steps(2) 3;
+}
+@keyframes egg-flash-blink { 50% { opacity: 0.45; } }
+.egg-invasion-tint {
+  background: radial-gradient(ellipse at 50% 0%, rgba(74, 222, 128, 0.08), transparent 60%);
+}
+
+/* ---- Matrix mode ---- */
+.egg-matrix-vignette {
+  background: radial-gradient(ellipse at center, transparent 55%, rgba(0, 0, 0, 0.78));
+}
+.egg-matrix-msg {
+  color: #86efac;
+  text-shadow: 0 0 8px rgba(34, 197, 94, 0.85), 2px 0 rgba(244, 63, 94, 0.35), -2px 0 rgba(56, 189, 248, 0.35);
+  animation: egg-msg-fade 3.8s steps(6);
+}
+@keyframes egg-msg-fade {
+  0% { opacity: 0; transform: translateY(6px); }
+  15%, 85% { opacity: 1; transform: none; }
+  100% { opacity: 0; }
+}
+
+/* ---- Hidden pet ---- */
+@keyframes egg-pet-hop {
+  0%, 100% { transform: translateY(0); }
+  30% { transform: translateY(-10px); }
+  60% { transform: translateY(-3px); }
+}
+.egg-pet-hop { animation: egg-pet-hop 0.6s steps(6); }
+
+/* ---- Secret boss ---- */
+.egg-battle-scene {
+  background: radial-gradient(ellipse at 50% 18%, #2e1065 0%, #1e1b4b 48%, #0b0e1c 100%);
+}
+@keyframes egg-hurt-flash { 50% { filter: invert(0.75) hue-rotate(180deg); } }
+.egg-boss-hurt { animation: egg-hurt-flash 0.36s steps(3); }
+
+/* ---- 1% rare event ---- */
+.egg-onepercent {
+  border: 2px dashed #fde047;
+  animation: egg-crown-pulse 1.4s steps(4) infinite;
+}
+@keyframes egg-crown-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(253, 224, 71, 0.5), 4px 4px 0 var(--pixel-shadow); }
+  50% { box-shadow: 0 0 0 6px rgba(253, 224, 71, 0.12), 4px 4px 0 var(--pixel-shadow); }
+}
+
+/* ---- Secret vault chip ---- */
+.egg-vault-chip { border-color: color-mix(in srgb, var(--accent) 60%, var(--line)); }
+
+/* ---- Corner stalker ---- */
+.egg-stalker { animation: egg-stalker-peek 4.5s steps(8) forwards; }
+@keyframes egg-stalker-peek {
+  0% { opacity: 0; transform: translateY(8px); }
+  12%, 88% { opacity: 1; transform: none; }
+  100% { opacity: 0; transform: translateY(8px); }
+}
