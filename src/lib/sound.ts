@@ -18,6 +18,22 @@ export type SfxKind =
 let ctx: AudioContext | null = null;
 let unlocked = false;
 
+/**
+ * SFX bus level (0..1) driven by the Audio settings (master × SFX volume).
+ * Every tone/noise below is scaled by this so the existing sounds keep working
+ * exactly as before while respecting the new volume sliders.
+ */
+let sfxLevel = 1;
+
+export function setSfxLevel(level: number) {
+  const n = Number.isFinite(level) ? level : 1;
+  sfxLevel = Math.min(1, Math.max(0, n));
+}
+
+export function getSfxLevel(): number {
+  return sfxLevel;
+}
+
 function getCtx(): AudioContext | null {
   if (typeof window === "undefined") return null;
   const AC =
@@ -59,8 +75,9 @@ function tone(
   if (endFreq !== undefined) {
     osc.frequency.exponentialRampToValueAtTime(Math.max(20, endFreq), now + duration);
   }
+  const level = gainLevel * sfxLevel;
   gain.gain.setValueAtTime(0.0001, now);
-  gain.gain.linearRampToValueAtTime(gainLevel, now + 0.008);
+  gain.gain.linearRampToValueAtTime(Math.max(0.00005, level), now + 0.008);
   gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
   osc.connect(gain);
   gain.connect(ac.destination);
@@ -84,7 +101,7 @@ function noiseBurst(ac: AudioContext, duration = 0.24, delay = 0, gainLevel = 0.
   filter.frequency.setValueAtTime(900, ac.currentTime + delay);
   filter.frequency.exponentialRampToValueAtTime(140, ac.currentTime + delay + duration);
   const gain = ac.createGain();
-  gain.gain.setValueAtTime(gainLevel, ac.currentTime + delay);
+  gain.gain.setValueAtTime(Math.max(0.00005, gainLevel * sfxLevel), ac.currentTime + delay);
   gain.gain.exponentialRampToValueAtTime(0.0001, ac.currentTime + delay + duration);
   src.connect(filter);
   filter.connect(gain);
@@ -93,7 +110,7 @@ function noiseBurst(ac: AudioContext, duration = 0.24, delay = 0, gainLevel = 0.
 }
 
 export function playSfx(kind: SfxKind, enabled: boolean) {
-  if (!enabled || !unlocked) return;
+  if (!enabled || !unlocked || sfxLevel <= 0.001) return;
   const ac = getCtx();
   if (!ac || ac.state === "suspended") return;
 

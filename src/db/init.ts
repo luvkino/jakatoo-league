@@ -40,6 +40,43 @@ create table if not exists matches (
 );
 create index if not exists matches_season_idx on matches(season_id);
 create index if not exists matches_played_idx on matches(played_at);
+create table if not exists player_preferences (
+  player_id uuid primary key,
+  theme text not null default 'classic',
+  avatar jsonb not null default '{}'::jsonb,
+  master_volume integer not null default 80,
+  music_volume integer not null default 40,
+  sfx_volume integer not null default 70,
+  music_enabled boolean not null default true,
+  sfx_enabled boolean not null default false,
+  shake_enabled boolean not null default true,
+  shake_intensity integer not null default 35,
+  match_animations boolean not null default true,
+  updated_at timestamptz not null default now(),
+  constraint prefs_volumes check (
+    master_volume between 0 and 100 and music_volume between 0 and 100 and sfx_volume between 0 and 100
+  ),
+  constraint prefs_shake check (shake_intensity between 0 and 100)
+);
+alter table player_preferences add column if not exists theme text not null default 'classic';
+alter table player_preferences add column if not exists avatar jsonb not null default '{}'::jsonb;
+alter table player_preferences add column if not exists master_volume integer not null default 80;
+alter table player_preferences add column if not exists music_volume integer not null default 40;
+alter table player_preferences add column if not exists sfx_volume integer not null default 70;
+alter table player_preferences add column if not exists music_enabled boolean not null default true;
+alter table player_preferences add column if not exists sfx_enabled boolean not null default false;
+alter table player_preferences add column if not exists shake_enabled boolean not null default true;
+alter table player_preferences add column if not exists shake_intensity integer not null default 35;
+alter table player_preferences add column if not exists match_animations boolean not null default true;
+alter table player_preferences add column if not exists updated_at timestamptz not null default now();
+create unique index if not exists player_preferences_player_idx on player_preferences(player_id);
+-- Idempotent for pre-existing preference tables (no plpgsql / DO blocks needed).
+alter table player_preferences drop constraint if exists prefs_volumes;
+alter table player_preferences add constraint prefs_volumes check (
+  master_volume between 0 and 100 and music_volume between 0 and 100 and sfx_volume between 0 and 100
+);
+alter table player_preferences drop constraint if exists prefs_shake;
+alter table player_preferences add constraint prefs_shake check (shake_intensity between 0 and 100);
 create table if not exists audit_log (
   id serial primary key,
   action text not null,

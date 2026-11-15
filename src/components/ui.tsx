@@ -82,15 +82,23 @@ export function PageTitle({
   );
 }
 
+// Scroll-lock reference count: several modals can be open at once (e.g. the
+// match form plus the match-result sequence), so the body must only be unlocked
+// after the *last* one closes.
+let modalLocks = 0;
+let savedOverflow = "";
+
 export function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
   useEffect(() => {
     const k = (e: KeyboardEvent) => e.key === "Escape" && onClose();
     document.addEventListener("keydown", k);
-    const prev = document.body.style.overflow;
+    if (modalLocks === 0) savedOverflow = document.body.style.overflow;
+    modalLocks += 1;
     document.body.style.overflow = "hidden";
     return () => {
       document.removeEventListener("keydown", k);
-      document.body.style.overflow = prev;
+      modalLocks = Math.max(0, modalLocks - 1);
+      if (modalLocks === 0) document.body.style.overflow = savedOverflow;
     };
   }, [onClose]);
   return (

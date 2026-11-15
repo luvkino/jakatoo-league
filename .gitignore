@@ -2,3 +2,5 @@ node_modules/
 .next/
 .env*
 !.env.example
+.tmp/
+tsconfig.tsbuildinfo

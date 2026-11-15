@@ -1,10 +1,14 @@
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 import "./globals.css";
+import "./themes.css";
 import { ChaosProvider } from "@/components/ChaosEngine";
 import { EasterEggProvider } from "@/components/easter/EasterEggProvider";
 import { LeagueProvider } from "@/components/LeagueProvider";
 import { SettingsProvider, THEME_BOOT_SCRIPT } from "@/components/Settings";
+import { PlayerPrefsProvider, PREFS_BOOT_SCRIPT } from "@/components/prefs/PlayerPrefsProvider";
+import { AudioManager } from "@/components/prefs/AudioManager";
+import { ShakeDriver } from "@/components/prefs/ScreenShake";
 import Shell from "@/components/Shell";
 
 export const metadata: Metadata = {
@@ -25,16 +29,21 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           rel="stylesheet"
         />
         <script dangerouslySetInnerHTML={{ __html: THEME_BOOT_SCRIPT }} />
+        <script dangerouslySetInnerHTML={{ __html: PREFS_BOOT_SCRIPT }} />
       </head>
       <body className="antialiased pixel-bg-grid">
         <SettingsProvider>
-          <LeagueProvider>
-            <ChaosProvider>
-              <EasterEggProvider>
-                <Shell>{children}</Shell>
-              </EasterEggProvider>
-            </ChaosProvider>
-          </LeagueProvider>
+          <PlayerPrefsProvider>
+            <ShakeDriver />
+            <AudioManager />
+            <LeagueProvider>
+              <ChaosProvider>
+                <EasterEggProvider>
+                  <Shell>{children}</Shell>
+                </EasterEggProvider>
+              </ChaosProvider>
+            </LeagueProvider>
+          </PlayerPrefsProvider>
         </SettingsProvider>
       </body>
     </html>

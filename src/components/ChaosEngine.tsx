@@ -369,6 +369,15 @@ export function ChaosProvider({ children }: { children: ReactNode }) {
     [a.animIntensity, a.chaosMode, presentEvent, sfx, triggerExplosion],
   );
 
+  // Chaos Mode's dramatic burst shake is applied to the same shake targets as
+  // the ambient effect (never as a nested transform wrapper).
+  useEffect(() => {
+    document.documentElement.dataset.chaosburst = shaking ? "on" : "off";
+    return () => {
+      document.documentElement.dataset.chaosburst = "off";
+    };
+  }, [shaking]);
+
   const dismissEvent = useCallback(() => {
     setActiveEvent(null);
     if (eventTimerRef.current) clearTimeout(eventTimerRef.current);
@@ -541,9 +550,11 @@ export function ChaosProvider({ children }: { children: ReactNode }) {
 
   return (
     <ChaosContext.Provider value={value}>
-      <div className={shaking ? "chaos-shake" : glitching ? "chaos-glitch" : ""}>
-        {children}
-      </div>
+      {/* No transform wrapper here on purpose: the continuous screen-shake
+          effect (and any overlay inside) must never be clipped or nested
+          inside another transform. Chaos visuals are applied through classes
+          that animate colour/brightness and through `data-chaosburst`. */}
+      <div className={glitching ? "chaos-glitch-soft" : ""}>{children}</div>
 
       {/* Hardware-accelerated pixel particle canvas (pointer-events-none) */}
       <canvas

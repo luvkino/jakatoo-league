@@ -5,6 +5,11 @@ import { PixelIcon, type PixelIconName } from "@/components/PixelArt";
 import { useAppearance, type AnimIntensity, type Appearance } from "@/components/Settings";
 import { PageTitle, SectionTitle } from "@/components/ui";
 import { unlockAudio } from "@/lib/sound";
+import { AvatarEditor } from "@/components/avatar/AvatarEditor";
+import { AudioSettings } from "@/components/prefs/AudioSettings";
+import { ShakeSettings } from "@/components/prefs/ShakeSettings";
+import { WorldThemePicker } from "@/components/themes/WorldThemePicker";
+import { usePlayerPrefs } from "@/components/prefs/PlayerPrefsProvider";
 
 const THEMES: [Appearance["theme"], string][] = [
   ["dark", "داكن أركيد"],
@@ -13,6 +18,7 @@ const THEMES: [Appearance["theme"], string][] = [
   ["midnight", "نيون ليلي"],
 ];
 const ACCENTS: [Appearance["accent"], string, string][] = [
+  ["theme", "لون الثيم", "#a855f7"],
   ["gold", "ذهبي", "#fbbf24"],
   ["emerald", "أخضر", "#22c55e"],
   ["sky", "سماوي", "#38bdf8"],
@@ -58,8 +64,62 @@ function Opt({ on, onClick, children }: { on: boolean; onClick: () => void; chil
   );
 }
 
+function MatchAnimationsSetting() {
+  const { prefs, set } = usePlayerPrefs();
+  const { a, set: setAppearance } = useAppearance();
+  const animOn = prefs.matchAnimations;
+  return (
+    <div className="stack !gap-3">
+      <p className="text-sm text-muted">
+        عند حفظ نتيجة مباراة جديدة تظهر شاشة أركيد «MATCH COMPLETE» تعرض النتيجة الرسمية، ثم تحرّك الترتيب من
+        المراكز السابقة إلى المراكز الجديدة مع إبراز الصاعدين والمتراجعين ورسائل عربية للمركز الأخير.
+      </p>
+      <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="حركات نتيجة المباراة">
+        <button
+          type="button"
+          role="radio"
+          aria-checked={animOn}
+          className={`btn ${animOn ? "btn-primary" : ""}`}
+          onClick={() => set({ matchAnimations: true })}
+        >
+          <PixelIcon name="sparkle" size={16} /> تشغيل الحركة
+        </button>
+        <button
+          type="button"
+          role="radio"
+          aria-checked={!animOn}
+          className={`btn ${!animOn ? "btn-primary" : ""}`}
+          onClick={() => set({ matchAnimations: false })}
+        >
+          إيقاف الحركة
+        </button>
+      </div>
+      {a.animIntensity === "off" && (
+        <p className="text-[11px] text-bad">
+          ملاحظة: «شدة الحركات» مضبوطة على إيقاف، لذا لن تظهر الحركة حتى لو كانت مفعّلة هنا.
+        </p>
+      )}
+      <button
+        type="button"
+        className="btn btn-sm self-start"
+        onClick={() => {
+          setAppearance({ animIntensity: "normal", anim: true });
+          set({ matchAnimations: true });
+        }}
+      >
+        <PixelIcon name="bolt" size={14} /> تفعيل كل الحركات (هذا الخيار + شدة الحركات)
+      </button>
+      <p className="text-[11px] text-muted">
+        يُحترم إعداد «تقليل الحركة» في نظام التشغيل تلقائياً، ويمكن تخطي أي مشهد بزر «تخطي الحركة». لا تُعدَّل النقاط
+        أو الترتيب أبداً لأجل الرسوم.
+      </p>
+    </div>
+  );
+}
+
 export default function SettingsPage() {
   const { a, set, reset } = useAppearance();
+  const { set: setPrefs } = usePlayerPrefs();
   const { triggerEvent, triggerExplosion, triggerCelebration, nextTrash, sfx } = useChaos();
 
   function toggleChaos(val: boolean) {
@@ -73,7 +133,10 @@ export default function SettingsPage() {
 
   function toggleSound(val: boolean) {
     unlockAudio();
+    // The new Audio section owns the volume sliders; this switch stays the
+    // quick 8-bit SFX on/off control and is mirrored there.
     set({ sound: val });
+    setPrefs({ sfxEnabled: val });
     if (val) {
       // Unlock immediately on this user gesture and play confirmation chime
       setTimeout(() => sfx("achievement"), 20);
@@ -88,6 +151,46 @@ export default function SettingsPage() {
       >
         المظهر والإعدادات
       </PageTitle>
+
+      {/* 1 — Appearance & Themes */}
+      <section className="card stack">
+        <SectionTitle pixelIcon="palette" extra={<span className="chip chip-accent !text-[10px]">7 عوالم + الكلاسيكي</span>}>
+          ١ · المظهر والثيمات (Multiverse)
+        </SectionTitle>
+        <p className="text-xs sm:text-sm text-muted">
+          جميع الثيمات مجانية ومتاحة من البداية — بلا إنجازات أو أقفال أو متجر. اختر عالماً، شاهده في المعاينة، ثم
+          اضغط «تطبيق الثيم» ليُحفظ في حسابك.
+        </p>
+        <WorldThemePicker />
+      </section>
+
+      {/* 2 — Avatar Customization */}
+      <section className="card stack">
+        <SectionTitle pixelIcon="players">٢ · تخصيص الأفاتار (Pixel Art)</SectionTitle>
+        <p className="text-xs sm:text-sm text-muted">
+          مصمّم بسيط: بشرة، شعر، لون شعر، عيون، زي، وإكسسوار — كل الخيارات مجانية وفورية. يظهر الأفاتار بجانب اسمك في
+          الترتيب والملف الشخصي وسجل المباريات.
+        </p>
+        <AvatarEditor />
+      </section>
+
+      {/* 3 — Music & Audio */}
+      <section className="card stack">
+        <SectionTitle pixelIcon="soundOn">٣ · الموسيقى والصوت</SectionTitle>
+        <AudioSettings />
+      </section>
+
+      {/* 4 — Screen Shake */}
+      <section className="card stack">
+        <SectionTitle pixelIcon="bolt">٤ · اهتزاز الشاشة المستمر</SectionTitle>
+        <ShakeSettings />
+      </section>
+
+      {/* 5 — Match Animations */}
+      <section className="card stack">
+        <SectionTitle pixelIcon="cards">٥ · حركات نتيجة المباراة</SectionTitle>
+        <MatchAnimationsSetting />
+      </section>
 
       {/* Part 3, 6, 8, 9: Chaos Mode, Trash Talk, Sound Effects, Animation Intensity */}
       <section className="stack">
@@ -247,11 +350,11 @@ export default function SettingsPage() {
         </div>
       </section>
 
-      {/* Existing Appearance Settings Preserved */}
+      {/* Existing Appearance Settings Preserved (colours / density / radius) */}
       <section className="stack">
         <SectionTitle pixelIcon="palette">مظهر واجهة البكسل</SectionTitle>
 
-        <Group title="السمة" icon="sparkle">
+        <Group title="اللوحة الأساسية للواجهة" icon="sparkle">
           {THEMES.map(([v, l]) => (
             <Opt key={v} on={a.theme === v} onClick={() => set({ theme: v })}>
               {l}
@@ -313,9 +416,20 @@ export default function SettingsPage() {
         </Group>
       </section>
 
-      <button type="button" className="btn btn-danger self-start" onClick={reset}>
-        ↩️ استعادة الإعدادات الافتراضية
-      </button>
+      <div className="flex flex-wrap gap-2">
+        <button type="button" className="btn btn-danger self-start" onClick={reset}>
+          ↩️ استعادة الإعدادات الافتراضية
+        </button>
+        <button
+          type="button"
+          className="btn self-start"
+          onClick={() => {
+            setPrefs({ theme: "classic", shakeEnabled: true, shakeIntensity: 35, matchAnimations: true });
+          }}
+        >
+          🎮 استعادة ثيم وإعدادات الحركة الافتراضية
+        </button>
+      </div>
     </div>
   );
 }

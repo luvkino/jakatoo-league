@@ -8,7 +8,10 @@ import { useLeague } from "@/components/LeagueProvider";
 import { PixelIcon, type PixelIconName } from "@/components/PixelArt";
 import { useAppearance } from "@/components/Settings";
 import { Modal } from "@/components/ui";
+import { MatchResultSequence } from "@/components/match/MatchResultSequence";
+import { usePlayerPrefs } from "@/components/prefs/PlayerPrefsProvider";
 import { unlockAudio } from "@/lib/sound";
+import { pickRandomWorld } from "@/lib/worldThemes";
 
 const NAV: { href: string; label: string; icon: PixelIconName }[] = [
   { href: "/", label: "الرئيسية", icon: "home" },
@@ -89,17 +92,21 @@ export default function Shell({ children }: { children: ReactNode }) {
   const { admin, logout, seasons, scope, setScope, loadError, refresh, toasts, dismissToast } = useLeague();
   const { a, set } = useAppearance();
   const { currentTrash, nextTrash } = useChaos();
+  const { prefs, set: setPrefs } = usePlayerPrefs();
+  const { pendingResult, dismissPendingResult, nameOf } = useLeague();
   const [more, setMore] = useState(false);
   const isActive = (href: string) => (href === "/" ? path === "/" : path.startsWith(href));
 
   function toggleSoundQuick() {
     unlockAudio();
-    set({ sound: !a.sound });
+    const next = !a.sound;
+    set({ sound: next });
+    setPrefs({ sfxEnabled: next }); // keeps Settings → Audio in sync
   }
 
   return (
-    <div className="mx-auto flex min-h-dvh w-full max-w-6xl flex-col px-3 pb-24 sm:px-5 lg:pb-8">
-      <header className="sticky top-0 z-30 -mx-3 border-b-2 border-line bg-bg/95 px-3 py-2 backdrop-blur sm:-mx-5 sm:px-5">
+    <div className="relative mx-auto flex min-h-dvh w-full max-w-6xl flex-col px-3 pb-24 sm:px-5 lg:pb-8">
+      <header className="shake-target sticky top-0 z-30 -mx-3 border-b-2 border-line bg-bg/95 px-3 py-2 backdrop-blur sm:-mx-5 sm:px-5">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <Link
             href="/"
@@ -125,6 +132,20 @@ export default function Shell({ children }: { children: ReactNode }) {
                 <span className="hidden sm:inline">وضع الفوضى</span>
               </Link>
             )}
+
+            <button
+              type="button"
+              onClick={() => {
+                unlockAudio();
+                const next = pickRandomWorld(Math.floor(Math.random() * 1e6), prefs.theme);
+                setPrefs({ theme: next });
+              }}
+              className="btn btn-sm !min-h-[38px] !px-2"
+              title="ثيم عشوائي — Multiverse"
+              aria-label="تغيير الثيم بشكل عشوائي"
+            >
+              <PixelIcon name="dice" size={18} />
+            </button>
 
             <button
               type="button"
@@ -224,11 +245,16 @@ export default function Shell({ children }: { children: ReactNode }) {
         </div>
       )}
 
-      <main className="mt-4 flex-1">{children}</main>
+      <main className="shake-target relative z-[1] mt-4 flex-1">{children}</main>
 
       {/* Mobile bottom arcade dock */}
       <nav
-        className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-5 border-t-2 border-line bg-card/95 backdrop-blur lg:hidden"
+        className="shake-target fixed bottom-0 z-30 grid grid-cols-5 border-t-2 border-line bg-card/95 backdrop-blur lg:hidden"
+        style={{
+          // mirror the shell's horizontal padding on both sides so the tiny
+          // shake translation can never reveal a gap at the screen edge
+          insetInline: "max(0px, calc((100% - 72rem) / 2 + 0.75rem))",
+        }}
         aria-label="التنقل السريع"
       >
         {NAV.filter((n) => BOTTOM.includes(n.href)).map((n) => (
@@ -268,6 +294,15 @@ export default function Shell({ children }: { children: ReactNode }) {
             ))}
           </div>
         </Modal>
+      )}
+
+      {pendingResult && (
+        <MatchResultSequence
+          key={pendingResult.match.id}
+          payload={pendingResult}
+          nameOf={nameOf}
+          onClose={dismissPendingResult}
+        />
       )}
 
       <div
