@@ -34,6 +34,16 @@ export type EggSfxKind =
 
 let ctx: AudioContext | null = null;
 
+// The easter-egg synth shares the global SFX volume chosen in the new Audio
+// settings so "mute all" silences secrets too. Defaults to 1 (unchanged
+// behaviour when the audio manager has not initialised yet).
+let sfxVolumeLevel = 1;
+export function setEggSfxLevel(level: number) {
+  const n = Number.isFinite(level) ? level : 1;
+  sfxVolumeLevel = Math.min(1, Math.max(0, n));
+}
+const sfxLevel = () => sfxVolumeLevel;
+
 function getCtx(): AudioContext | null {
   if (typeof window === "undefined") return null;
   const AC =
@@ -71,7 +81,7 @@ function tone(
     osc.frequency.exponentialRampToValueAtTime(Math.max(20, endFreq), now + duration);
   }
   gain.gain.setValueAtTime(0.0001, now);
-  gain.gain.linearRampToValueAtTime(gainLevel, now + 0.008);
+  gain.gain.linearRampToValueAtTime(Math.max(0.00005, gainLevel * sfxLevel()), now + 0.008);
   gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
   osc.connect(gain);
   gain.connect(ac.destination);
@@ -95,7 +105,7 @@ function noiseBurst(ac: AudioContext, duration = 0.2, delay = 0, gainLevel = 0.0
   filter.frequency.setValueAtTime(cutoff, ac.currentTime + delay);
   filter.frequency.exponentialRampToValueAtTime(140, ac.currentTime + delay + duration);
   const gain = ac.createGain();
-  gain.gain.setValueAtTime(gainLevel, ac.currentTime + delay);
+  gain.gain.setValueAtTime(Math.max(0.00005, gainLevel * sfxLevel()), ac.currentTime + delay);
   gain.gain.exponentialRampToValueAtTime(0.0001, ac.currentTime + delay + duration);
   src.connect(filter);
   filter.connect(gain);

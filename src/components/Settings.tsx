@@ -6,7 +6,8 @@ export type AnimIntensity = "off" | "low" | "normal" | "extreme";
 
 export interface Appearance {
   theme: "dark" | "light" | "amoled" | "midnight";
-  accent: "gold" | "emerald" | "sky" | "rose" | "violet" | "orange";
+  /** "theme" follows the active multiverse world's signature colour. */
+  accent: "theme" | "gold" | "emerald" | "sky" | "rose" | "violet" | "orange";
   density: "comfortable" | "compact";
   leaderboard: "table" | "cards";
   radius: "rounded" | "sharp";
@@ -21,7 +22,7 @@ export interface Appearance {
 
 export const DEFAULT_APPEARANCE: Appearance = {
   theme: "dark",
-  accent: "gold",
+  accent: "theme",
   density: "comfortable",
   leaderboard: "table",
   radius: "sharp",
@@ -154,4 +155,4 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
 export const useAppearance = () => useContext(Ctx);
 
 // Applied before first paint to avoid a theme flash.
-export const THEME_BOOT_SCRIPT = `(function(){try{var a=JSON.parse(localStorage.getItem("${KEY}")||"{}");var e=document.documentElement;var rm=window.matchMedia&&window.matchMedia("(prefers-reduced-motion: reduce)").matches;var inten=a.animIntensity||(a.anim===false?"off":"normal");if(rm&&inten!=="off")inten="low";e.dataset.theme=a.theme||"dark";e.dataset.accent=a.accent||"gold";e.dataset.density=a.density||"comfortable";e.dataset.radius=a.radius||"sharp";e.dataset.anim=(a.anim===false||inten==="off")?"off":"on";e.dataset.chaos=a.chaosMode?"on":"off";e.dataset.intensity=inten;}catch(x){}})();`;
+export const THEME_BOOT_SCRIPT = `(function(){try{var a=JSON.parse(localStorage.getItem("${KEY}")||"{}");var e=document.documentElement;var rm=window.matchMedia&&window.matchMedia("(prefers-reduced-motion: reduce)").matches;var inten=a.animIntensity||(a.anim===false?"off":"normal");if(rm&&inten!=="off")inten="low";e.dataset.theme=a.theme||"dark";e.dataset.accent=a.accent||"theme";e.dataset.density=a.density||"comfortable";e.dataset.radius=a.radius||"sharp";e.dataset.anim=(a.anim===false||inten==="off")?"off":"on";e.dataset.chaos=a.chaosMode?"on":"off";e.dataset.intensity=inten;}catch(x){}})();`;

@@ -96,3 +96,23 @@ Integration points (intentionally minimal & additive):
   `useReducedMotion()` / `matchMedia` directly).
 - Virtual blackjack chips have **zero real-world value**: no payments, no
   purchases, no gambling integrations — the game is 100% offline.
+
+---
+
+## Compatibility with the Multiverse update
+
+The secret layer is unaffected: codes, cheat sequences, hidden interactions and
+all secret achievements still work exactly as described above.
+
+Two details changed only in how they *coexist* with the new visual/audio
+features:
+
+- The easter-egg synth now shares the global **SFX volume** chosen in
+  Settings → Music & Audio (so "Mute All" silences secrets too, and every
+  secret sound respects the master volume). Its own sounds are untouched.
+- Chaos Mode's shake/glitch wrappers no longer apply a `transform` to a
+  container (that would clip the continuous screen shake and any fixed overlay
+  inside it). They animate brightness/filter instead, which keeps the same
+  visual energy with no nesting problems.
+
+See `MULTIVERSE.md` for the new theme/avatar/audio/shake/match-animation system.

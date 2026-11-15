@@ -1,6 +1,9 @@
 "use client";
 
 import type { CSSProperties } from "react";
+import { AvatarSprite } from "@/components/avatar/AvatarSprite";
+import { usePlayerPrefs } from "@/components/prefs/PlayerPrefsProvider";
+import type { AvatarConfig } from "@/lib/avatar";
 
 export type PixelIconName =
   | "home"
@@ -540,6 +543,7 @@ export function PixelAvatar({
   isLeader = false,
   isLastPlace = false,
   className = "",
+  config,
 }: {
   id: string;
   name: string;
@@ -547,13 +551,41 @@ export function PixelAvatar({
   isLeader?: boolean;
   isLastPlace?: boolean;
   className?: string;
+  /** Customised avatar for this player (falls back to the deterministic art). */
+  config?: AvatarConfig | null;
 }) {
+  const { avatarFor } = usePlayerPrefs();
+  const custom = config ?? avatarFor(id);
   const h = hashStr(`${id}:${name}`);
   const hair = HAIR_PALETTES[h % HAIR_PALETTES.length];
   const tunic = TUNIC_PALETTES[(h >> 3) % TUNIC_PALETTES.length];
   const skin = SKIN_PALETTES[(h >> 6) % SKIN_PALETTES.length];
   const style = (h >> 8) % 3; // 0 = hero headband, 1 = wizard/cap, 2 = knight crest
   const bg = isLeader ? "#3b2c06" : isLastPlace ? "#3a1226" : "#151d38";
+
+  if (custom) {
+    return (
+      <div
+        className={`relative inline-flex shrink-0 items-center justify-center pixel-frame ${
+          isLeader ? "pixel-leader-frame" : isLastPlace ? "pixel-last-frame" : ""
+        } ${className}`}
+        style={{ width: size, height: size, background: bg }}
+        aria-hidden
+      >
+        <AvatarSprite config={custom} size={size - 6} />
+        {isLeader && (
+          <span className="absolute -top-3 left-1/2 -translate-x-1/2">
+            <PixelCrownAnimated size={22} />
+          </span>
+        )}
+        {!isLeader && isLastPlace && (
+          <span className="absolute -top-2.5 left-1/2 -translate-x-1/2">
+            <PixelPiggyMascot size={20} />
+          </span>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div

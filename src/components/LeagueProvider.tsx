@@ -12,6 +12,9 @@ import {
   type ReactNode,
 } from "react";
 import { call, type Res } from "@/lib/client";
+import { usePlayerPrefs } from "@/components/prefs/PlayerPrefsProvider";
+import type { PendingResult } from "@/components/match/MatchResultSequence";
+import { rankRowsFrom } from "@/lib/matchMessages";
 import { cleanName, nameKey } from "@/lib/normalize";
 import {
   ACH_MAP,
@@ -70,6 +73,9 @@ interface Ctx {
   toast: (msg: string, kind?: Toast["kind"]) => void;
   toasts: Toast[];
   dismissToast: (id: number) => void;
+  /** Set right after a saved match so the animated results can be shown. */
+  pendingResult: PendingResult | null;
+  dismissPendingResult: () => void;
 }
 
 const LeagueCtx = createContext<Ctx | null>(null);
@@ -122,6 +128,9 @@ export function LeagueProvider({ children }: { children: ReactNode }) {
   const [admin, setAdmin] = useState<AdminState>("unknown");
   const scopeRaw = useSyncExternalStore(subscribeScope, readScopeStore, () => "");
   const [toasts, setToasts] = useState<Toast[]>([]);
+  const [pendingResult, setPendingResult] = useState<PendingResult | null>(null);
+  const dismissPendingResult = useCallback(() => setPendingResult(null), []);
+  const { prefs } = usePlayerPrefs();
 
   const pending = useRef(0);
   const writeVersion = useRef(0);
@@ -303,16 +312,32 @@ export function LeagueProvider({ children }: { children: ReactNode }) {
 
   const addMatch = useCallback(
     async (m: MatchPayload) => {
+      // Snapshot the OFFICIAL ranking before saving — never recalculated by hand.
+      const before = rankRowsFrom(league.ranking);
       const r = await mutate<{ match: MatchRec }>("/api/matches", "POST", m);
       if (r.ok) {
-        const next = [...snapshot.current.matches, r.match];
+        const s = snapshot.current;
+        const next = [...s.matches, r.match];
         announceUnlocks(next);
         setMatches(next);
+
+        // The "after" ranking is recomputed with the SAME official engine that
+        // powers the site, using the freshly saved match only.
+        const nextScopeMatches =
+          scope === "all" ? next : next.filter((x) => x.seasonId === scope);
+        const afterLeague = computeLeague(s.players, nextScopeMatches);
+        if (prefs.matchAnimations) {
+          setPendingResult({
+            match: r.match,
+            before,
+            after: rankRowsFrom(afterLeague.ranking),
+          });
+        }
         setTimeout(refresh, 300);
       }
       return r;
     },
-    [mutate, refresh, announceUnlocks],
+    [mutate, refresh, announceUnlocks, league, scope, prefs.matchAnimations],
   );
   const updateMatch = useCallback(
     async (id: string, m: MatchPayload) => {
@@ -380,6 +405,7 @@ export function LeagueProvider({ children }: { children: ReactNode }) {
     players, activePlayers, matches, seasons, loaded, loadError, admin, scope, setScope, activeSeason,
     scopeMatches, league, unlocks, nameOf, refresh, login, logout, addPlayer, renamePlayer, setArchived,
     deletePlayer, addMatch, updateMatch, deleteMatch, createSeason, updateSeason, toast, toasts, dismissToast,
+    pendingResult, dismissPendingResult,
   };
   return <LeagueCtx.Provider value={value}>{children}</LeagueCtx.Provider>;
 }

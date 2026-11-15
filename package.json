@@ -6,7 +6,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "node --experimental-strip-types tests/stats.test.mts && node --experimental-strip-types tests/chaos-and-pixel.test.mts && node --experimental-strip-types tests/easter-eggs.test.mts && node --experimental-strip-types tests/multiverse.test.mts"
   },
   "dependencies": {
     "dotenv": "17.3.1",
