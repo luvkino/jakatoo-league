@@ -91,9 +91,11 @@
 [data-radius="sharp"] { --r: 0px; --rs: 0px; }
 [data-density="compact"] { --pad: 0.65rem; --gap: 0.65rem; }
 
-html { -webkit-text-size-adjust: 100%; }
+html { -webkit-text-size-adjust: 100%; background: var(--bg); }
 body {
-  background: var(--bg);
+  /* Transparent so the living world environment (fixed backdrop) is visible on
+     every page; the classic look keeps its solid colour via data-world. */
+  background: transparent;
   color: var(--fg);
   font-family: var(--font-sans);
   overflow-x: hidden;

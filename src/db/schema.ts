@@ -92,14 +92,49 @@ export const playerPreferences = pgTable(
     sfxVolume: integer("sfx_volume").notNull().default(70),
     musicEnabled: boolean("music_enabled").notNull().default(true),
     sfxEnabled: boolean("sfx_enabled").notNull().default(false),
-    shakeEnabled: boolean("shake_enabled").notNull().default(true),
-    shakeIntensity: integer("shake_intensity").notNull().default(35),
+    // Screen shake is opt-in (off by default) and starts at 15 % once enabled.
+    shakeEnabled: boolean("shake_enabled").notNull().default(false),
+    shakeIntensity: integer("shake_intensity").notNull().default(15),
+    // Living world environments (full-page animated backgrounds).
+    bgAnimations: boolean("bg_animations").notNull().default(true),
+    bgIntensity: integer("bg_intensity").notNull().default(2),
     matchAnimations: boolean("match_animations").notNull().default(true),
+    // Casino preferences (virtual chips are stored separately, never here).
+    casinoSfxEnabled: boolean("casino_sfx_enabled").notNull().default(true),
+    casinoTable: text("casino_table").notNull().default("classic"),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
     check("prefs_volumes", sql`${t.masterVolume} between 0 and 100 and ${t.musicVolume} between 0 and 100 and ${t.sfxVolume} between 0 and 100`),
     check("prefs_shake", sql`${t.shakeIntensity} between 0 and 100`),
+    check("prefs_bg", sql`${t.bgIntensity} between 0 and 3`),
     uniqueIndex("player_preferences_player_idx").on(t.playerId),
+  ],
+);
+
+/**
+ * Optional cloud backup of the virtual casino state.
+ *
+ * The authoritative game state is the browser store (`src/lib/casino/store.ts`);
+ * this table only lets a player continue on another device. It is deliberately
+ * disconnected from every league table: chips are virtual, have no monetary
+ * value and can never be converted into league points, rankings or stats.
+ */
+export const casinoLocal = pgTable(
+  "casino_local",
+  {
+    playerId: uuid("player_id").primaryKey(),
+    chips: integer("chips").notNull().default(2000),
+    practiceChips: integer("practice_chips").notNull().default(5000),
+    tableId: text("table_id").notNull().default("classic"),
+    customRules: jsonb("custom_rules").notNull().default({}),
+    stats: jsonb("stats").notNull().default({}),
+    history: jsonb("history").notNull().default([]),
+    soundEnabled: boolean("sound_enabled").notNull().default(true),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    check("casino_chips_non_negative", sql`${t.chips} >= 0`),
+    check("casino_practice_chips_non_negative", sql`${t.practiceChips} >= 0`),
   ],
 );

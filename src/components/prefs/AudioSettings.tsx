@@ -8,6 +8,7 @@ import { usePlayerPrefs } from "./PlayerPrefsProvider";
 import { TRACKS } from "@/lib/audio/tracks";
 import { previewTheme, setMusicTheme } from "@/lib/audio/engine";
 import { WORLD_THEME_MAP, WORLD_THEMES, type WorldTheme } from "@/lib/worldThemes";
+import { audioStatus, AUDIO_INTEGRATION_NOTE } from "@/lib/audio/sources";
 
 function Slider({
   label,
@@ -136,7 +137,7 @@ export function AudioSettings() {
           label="الموسيقى الخلفية"
           on={prefs.musicEnabled}
           onChange={(v) => set({ musicEnabled: v })}
-          desc="موسيقى أصلية 8-بت تتغير مع الثيم وتتكرر بسلاسة."
+          desc="موسيقى أصلية 8-بت تتغير مع الثيم وتتلاشى قبل بدء التالية."
         />
         <Toggle
           label="المؤثرات الصوتية"
@@ -188,9 +189,41 @@ export function AudioSettings() {
         </div>
       </div>
 
+      {/* Honest soundtrack status per world */}
+      <div className="border-2 border-line bg-card2/60 p-3">
+        <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
+          <span className="text-sm font-extrabold">حالة الموسيقى لكل عالم</span>
+          <span className="chip !text-[10px]">مقطوعات أصلية 8-بت</span>
+        </div>
+        <p className="mb-2 text-[10px] leading-relaxed text-muted">
+          كل عالم يشغّل الآن <b className="text-fg">مقطوعة أصلية</b> مكتوبة خصيصاً للدوري بمحرك 8-بت (موجات مربعة/نبضية،
+          باس، وإيقاع ريترو). لا نستخدم ولا نستخرج أي موسيقى محمية من لعبة أو فيلم أو منصة بث، ولا نسمّي أي مقطوعة
+          «أصلية» أو «محوّلة» ما لم يكن ملفها موجوداً فعلياً.
+        </p>
+        <ul className="space-y-1">
+          {WORLD_THEMES.map((t) => {
+            const st = audioStatus(t.id);
+            return (
+              <li key={t.id} className="flex flex-wrap items-center justify-between gap-2 border-t border-line/60 py-1 text-[11px]">
+                <span className="flex items-center gap-1.5">
+                  <span className="inline-block h-3 w-3 border border-black/40" style={{ background: t.swatch[2] }} />
+                  <b>{t.label}</b>
+                  <span className="text-muted">· {t.track}</span>
+                </span>
+                <span className={`chip !text-[10px] ${st.hasLicensedFile ? "chip-good" : ""}`}>
+                  {st.hasLicensedFile ? "ملف مرخّص" : "بانتظار ملف مرخّص"}
+                </span>
+              </li>
+            );
+          })}
+        </ul>
+        <p className="mt-2 text-[10px] leading-relaxed text-muted">{AUDIO_INTEGRATION_NOTE}</p>
+      </div>
+
       <p className="text-[11px] text-muted">
         تُحفظ هذه الإعدادات لكل لاعب وتُطبَّق على كل أجهزته بعد اختيار اسمه في قسم الأفاتار. تعمل الموسيقى فقط بعد
-        أول تفاعل مع الموقع (سياسة المتصفح)، وتتوقف تلقائياً عند إخفاء الصفحة.
+        أول تفاعل مع الموقع (سياسة المتصفح)، وتتوقف تلقائياً عند إخفاء الصفحة. عند تغيير الثيم تتلاشى الموسيقى
+        السابقة أولاً ثم تبدأ الجديدة — لا تتزامن مقطوعتان أبداً.
       </p>
     </div>
   );

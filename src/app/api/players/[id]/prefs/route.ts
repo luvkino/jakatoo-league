@@ -2,7 +2,14 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { playerPreferences, players } from "@/db/schema";
 import { normalizeAvatar, type AvatarConfig } from "@/lib/avatar";
-import { DEFAULT_PREFS, normalizePrefs, toServerPrefs, type ServerPrefs } from "@/lib/prefs";
+import {
+  DEFAULT_PREFS,
+  normalizeBgIntensity,
+  normalizeCasinoTable,
+  normalizePrefs,
+  toServerPrefs,
+  type ServerPrefs,
+} from "@/lib/prefs";
 import { ApiError, UUID_RE, api, ok, readJson } from "@/lib/server";
 import { normalizeWorldTheme } from "@/lib/worldThemes";
 
@@ -18,7 +25,11 @@ const dto = (row: typeof playerPreferences.$inferSelect): ServerPrefs => ({
   sfxEnabled: row.sfxEnabled,
   shakeEnabled: row.shakeEnabled,
   shakeIntensity: row.shakeIntensity,
+  bgAnimations: row.bgAnimations,
+  bgIntensity: normalizeBgIntensity(row.bgIntensity),
   matchAnimations: row.matchAnimations,
+  casinoSfxEnabled: row.casinoSfxEnabled,
+  casinoTable: normalizeCasinoTable(row.casinoTable),
 });
 
 async function assertPlayer(id: string) {
@@ -77,8 +88,15 @@ export const PUT = api<Ctx>({}, async (req, ctx) => {
     shakeEnabled: body.shakeEnabled === undefined ? base.shakeEnabled : bool(body.shakeEnabled, base.shakeEnabled),
     shakeIntensity:
       body.shakeIntensity === undefined ? base.shakeIntensity : clamp(body.shakeIntensity, base.shakeIntensity),
+    bgAnimations: body.bgAnimations === undefined ? base.bgAnimations : bool(body.bgAnimations, base.bgAnimations),
+    bgIntensity: body.bgIntensity === undefined ? base.bgIntensity : normalizeBgIntensity(body.bgIntensity),
     matchAnimations:
       body.matchAnimations === undefined ? base.matchAnimations : bool(body.matchAnimations, base.matchAnimations),
+    casinoSfxEnabled:
+      body.casinoSfxEnabled === undefined
+        ? base.casinoSfxEnabled
+        : bool(body.casinoSfxEnabled, base.casinoSfxEnabled),
+    casinoTable: body.casinoTable === undefined ? base.casinoTable : normalizeCasinoTable(body.casinoTable),
     avatar: body.avatar === undefined ? normalizeAvatar(existing?.avatar) : normalizeAvatar(body.avatar),
     updatedAt: new Date(),
   };

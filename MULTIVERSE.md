@@ -1,8 +1,9 @@
 # 🎨 JACKAROO LEAGUE — Multiverse, Avatars, Audio & Screen Effects
 
-This update adds player-customizable **world themes**, a **pixel-art avatar
-creator**, **per-theme 8-bit music**, a **continuous arcade screen shake** and an
-animated **match-result / live-ranking sequence**.
+This update adds player-customizable **living world environments**, a
+**pixel-art avatar creator**, **per-theme 8-bit music**, a rebuilt **screen
+shake**, an animated **match-result / live-ranking sequence** and a standalone
+**blackjack casino**.
 
 Everything below was added *on top of* the existing project. The league itself —
 players, seasons, matches, points, ranking calculations, achievements, the pixel
@@ -25,8 +26,35 @@ look, Chaos Mode and all easter eggs — is untouched.
 
 - No unlocks, no trophies, no currencies, no shop, no payments — everything is
   available immediately for every player.
-- A theme changes **backgrounds, cards, buttons, panels, menus, borders and
-  effects** (`src/app/themes.css`, every rule scoped to `[data-world="…"]`).
+- A theme is a **full-page animated environment**, not a colour swap:
+  `src/components/themes/worldScenes.tsx` (art) + `src/app/worlds.css` (motion)
+  render one fixed, `pointer-events: none`, `aria-hidden` layer *behind* the
+  real content. Each world has its own sky, silhouettes, particles and lighting:
+
+  | World | Environment |
+  | --- | --- |
+  | المحيط | depth-graded water, caustic light shafts, drifting bubbles, swaying seaweed, three crossing fish, sandy floor |
+  | سايبربنك | two skyline layers, neon signs, rain streaks, wet-floor reflections, grid floor, occasional glitch |
+  | الأركيد | CRT scanlines + vignette, floating pixel stars, retro glyphs, marquee glow |
+  | مملكة الفطر | parallax clouds, rolling hills, floating coins, ?-blocks and pipes |
+  | فايس سيتي | pink/purple sunset gradient, sun disc, swaying palms, distant city lights, water shimmer |
+  | الكازينو الغامض | slow-drifting playing cards, floating suits, warm overhead casino light |
+  | الصحراء | layered mountains, large sun, drifting sand motes, heat haze, cacti silhouettes |
+
+- Cards, panels, buttons, inputs and nav still change colour per world
+  (`src/app/themes.css`), and `html:not([data-world="classic"])` guards give
+  surfaces a solid plate so text stays readable over the motion.
+- **Controls**: master animation toggle + 4 intensity levels (`.wenv-root`
+  `data-bg` / `data-bg-level`), saved with the other preferences. Intensity and
+  the toggle are honoured live, and `prefers-reduced-motion` stops everything.
+- **Previews are accurate**: the Settings preview mounts the *same*
+  `SCENES` art inside a stage that is a full viewport scaled down to the card
+  width (ResizeObserver), so every `vh`/`vw` decoration lands exactly where it
+  does on the real page.
+- Every animation only touches `transform` / `opacity` (asserted by
+  `tests/environments.test.mts`), so there is no layout thrash, and the old
+  per-world `body` decorations plus the duplicate keyframe system were retired —
+  one background system per world.
 - **Preview before applying**: choosing a card only previews it; «تطبيق الثيم»
   commits it. «ثيم عشوائي» (also in the header) rolls a random world.
 - The selected world is remembered per player (browser + database) and survives
@@ -71,17 +99,24 @@ background-music toggle, SFX toggle and a **theme-music preview**.
 - Volumes are composed as `master × channel`; the existing 8-bit SFX and the
   easter-egg synth all respect the SFX level (so Mute All really mutes).
 
-## 4. Continuous arcade screen shake
+## 4. Screen shake (rebuilt)
 
-`Screen Shake` settings section: enable/disable, intensity slider 0–100 %
-(default **35 %**), OFF switch, and presets at 0/25/50/100 %.
+**Off by default**, 15 % when first enabled. Settings section «اهتزاز الشاشة»:
+enable switch, 0–100 % slider, presets at 0/10/15/35/100 % and a live preview
+button («معاينة مباشرة», also triggered by dragging the slider).
 
-- CSS `transform` keyframes on `.shake-target` regions (header, page content,
-  mobile dock) → compositor-only motion, **no layout shift**, no per-frame JS.
-- Overlays and modals are not targeted, so forms, menus and dialogs stay still.
-- 0 % = no movement at all; the amplitude is ≈1.6 px at 25 %, ≈3.2 px at 50 %,
-  ≈6.5 px at 100 %.
-- `prefers-reduced-motion` disables it automatically; saved per player.
+- The old design ran **two competing CSS keyframes** on the same element,
+  which is what produced the harsh, jumpy motion. It was replaced by a single
+  `requestAnimationFrame` loop (`src/components/prefs/ScreenShake.tsx`) writing
+  one accumulated `translate3d(...) rotate(...)` to `.jl-shake` regions.
+- Amplitude curve (`shakeAmplitude`): 0 %→0 px, 10 %→0.36 px, 15 %→0.57 px,
+  35 %→1.50 px, 50 %→2.25 px, 100 %→5 px. **0 % writes no transform at all.**
+- Only transform is animated → no layout shift, no scroll jump, no change to
+  hit targets, so clicking, typing and reading are never affected. Overlays,
+  modals and the casino table are not wrapped.
+- Pulses are event-driven (settlement, celebration), never a constant shake.
+- `prefers-reduced-motion`, the OFF switch and 0 % all fully disable it; the
+  value is saved with the player's preferences.
 
 ## 5. Match result animation & live ranking movement
 
@@ -100,15 +135,21 @@ message for last place → final leaderboard.
 
 ## 6. Settings organisation
 
-`/settings` now has clearly separated sections and keeps every previous option:
+`/settings` is now organised in the five requested numbered sections and keeps
+every previous option:
 
-1. المظهر والثيمات (Multiverse)
-2. تخصيص الأفاتار
-3. الموسيقى والصوت
-4. اهتزاز الشاشة المستمر
-5. حركات نتيجة المباراة
-then the original sections (Chaos Mode, trash talk, SFX, animation intensity, the
-effects lab and the original appearance controls).
+1. **المظهر والثيمات** — world picker (live previews) + «حركة الخلفية العامة»
+   (master toggle, intensity).
+2. **الموسيقى والمؤثرات** — master/music/SFX volumes, mute, music + SFX toggles,
+   per-world soundtrack status list.
+3. **اهتزاز الشاشة والمؤثرات البصرية** — shake switch/slider/preview + match
+   result animations.
+4. **تخصيص الأفاتار** — the avatar creator.
+5. **الكازينو والبلاك جاك** — casino SFX switch, default table, virtual-chip
+   disclaimer, top-up/practice chips, clear history, reset.
+
+Then the retained sections (appearance theme/accent/animations, Chaos Mode,
+trash talk, SFX and the effects lab) — nothing was removed.
 
 ## 7. Database & player preferences
 
@@ -119,13 +160,24 @@ player_id uuid primary key, theme text, avatar jsonb,
 master_volume int, music_volume int, sfx_volume int,
 music_enabled bool, sfx_enabled bool,
 shake_enabled bool, shake_intensity int,
-match_animations bool, updated_at timestamptz
+match_animations bool,
+bg_animations bool, bg_intensity int,          -- 0002
+casino_sfx_enabled bool, casino_table text,     -- 0003
+updated_at timestamptz
 ```
 
-- Created idempotently at runtime (`src/db/init.ts`) and as an explicit
-  migration (`drizzle/migrations/0001_player_preferences.sql`).
-- **No existing table is altered or reset**; players without a row get safe
-  defaults (classic theme, 35 % shake, 80/40/70 volumes, animations on).
+Plus `casino_local` (0002): `player_id`, `chips`, `practice_chips`, `table_id`,
+`custom_rules`, `stats`, `history`, `sound_enabled`, `updated_at` with
+`chips >= 0` / `practice_chips >= 0` checks. It is an optional backup of the
+browser-owned virtual casino state and has no relation to league points.
+
+- Created idempotently at runtime (`src/db/init.ts`) and as explicit migrations:
+  `0001_player_preferences.sql`, `0002_world_environments_and_casino.sql`,
+  `0003_casino_preferences.sql` — **additive only**: no column is dropped,
+  retyped or renamed and no row is deleted.
+- **No league table is altered or reset**; players without a row get safe
+  defaults (classic theme, shake OFF at 15 %, 80/40/70 volumes, animations on,
+  casino sound on, classic casino table).
 - API: `GET/PUT/PATCH /api/players/:id/prefs` (+ `GET /api/avatars` for the
   leaderboard map). Preferences can never modify players, matches or rankings.
 
@@ -138,14 +190,59 @@ npm test            # stats + chaos/pixel + easter eggs + multiverse suites
 npm run build       # production build
 ```
 
-`tests/multiverse.test.mts` covers theme metadata/random picker, avatar option
-counts/normalisation, preference defaults & clamping, shake amplitude mapping
-(0/25/50/100 %), audio mixing, music track structure, notation parsing and the
-ranking-movement maths against the real `computeLeague` engine.
+- `tests/multiverse.test.mts` — theme metadata/random picker, avatar options,
+  preference defaults & clamping, shake mapping, audio mixing, music structure,
+  notation parsing and ranking movement against the real `computeLeague`.
+- `tests/casino.test.mts` (51 checks) — the blackjack engine: soft/hard totals,
+  multiple aces, naturals, splits/resplit/resplit-aces, double, surrender,
+  insurance/even money, dealer BJ/bust, push, side bets, and that every hand and
+  bet settles **exactly once** with a non-negative balance.
+- `tests/environments.test.mts` (44 checks) — full-page scene coverage per world,
+  fixed/behind/pointer-events-none layer, decoration presence, transform/opacity
+  only animations, off/reduced-motion/intensity guards, accurate previews, the
+  rebuilt shake curve at 0/10/15/35/50/100 %, the audio-honesty contract, casino
+  store sanitisation and settings order.
 
-## 9. Copyright
+## 9. Copyright and audio honesty
 
 All palettes, sprites, patterns and music here are original work created for
 this project. The themes only *evoke* a genre/atmosphere — no copyrighted
 characters, logos, sprites, recordings or melodies are reproduced, and no
 external audio or image assets are downloaded.
+
+`src/lib/audio/sources.ts` is the single place where *licensed* soundtrack files
+can be registered:
+
+- It is **empty by design**. `audioStatus(theme)` therefore reports
+  «لم تُضف موسيقى مرخّصة بعد» for every world, and the world plays its original
+  8-bit chip composition.
+- To add a file: put it at `public/audio/licensed/<theme>.mp3` and add an entry
+  `{ theme, src, licence, attribution, verified: true }`. `verified` may only be
+  set after the file really exists — a test asserts this.
+- No soundtrack is ever extracted from a game, video or stream, and nothing
+  generated is ever labelled as an original soundtrack.
+
+## 10. Blackjack casino (standalone)
+
+`/casino` — a self-contained casino with its own identity, **independent of the
+selected league theme** (`.casino-backdrop` + `src/app/casino/casino.css` paint
+their own dark ambience over the world layer).
+
+- Pages: lobby `/casino` (tables / stats / rules / settings), `/casino/play`
+  (table + rules panel + table select), `/casino/history` (full round log),
+  `/casino/strategy` (hard/soft/pairs basic strategy).
+- Pure, DOM-free engine in `src/lib/casino/`: `cards`, `tables`, `sideBets`,
+  `engine` (reducer), `settlement` (chips + ledger), `stats`, `strategy`,
+  `store` (browser storage), `sound`. Deterministic tests, no randomness in the
+  settlement path.
+- Six real rule configurations (Classic, Vegas Strip, Atlantic City, European,
+  High Roller, Custom) — decks, H17/S17, 3:2 or 6:5, peek, hole card vs ENHC,
+  DAS, split limits, resplit aces, split-ace rules, surrender timing, BJ after
+  split, side-bet availability. The felt prints the live payline and dealer
+  rule, so the table can never advertise rules it does not use.
+- Settlement is centralised and idempotent: a round id can only be applied once
+  (`settleRoundChips` + ledger), wins pay `stake + winnings`, losses deduct the
+  reserved stake once, pushes return it, blackjack follows the table payout,
+  double/split/side/insurance are tracked separately, balance is clamped at 0
+  and chips never touch league points, rankings or statistics.
+- Chips are virtual only: no purchases, no currencies, no store.

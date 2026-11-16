@@ -1,0 +1,906 @@
+/* ============================================================================
+   JACKAROO LEAGUE — LIVING WORLD ENVIRONMENTS
+   A full-page, fixed, pointer-transparent backdrop behind the real site.
+   Everything here is additive: it never touches existing selectors, and
+   `.wenv-*` classes are used exclusively by <WorldEnvironment />.
+
+   Animation budget: transform/opacity only (compositor friendly). Particle
+   counts are fixed per world and scaled by data-bg-level, so a phone never
+   renders the desktop amount.
+   ========================================================================== */
+
+.wenv-root {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+  /* The shell renders above this layer. */
+  contain: strict;
+}
+
+.wenv-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.wenv-grain {
+  position: absolute;
+  inset: 0;
+  opacity: 0.16;
+  background-image: repeating-linear-gradient(
+    0deg,
+    rgba(0, 0, 0, 0.18) 0 1px,
+    transparent 1px 3px
+  );
+  mix-blend-mode: multiply;
+}
+
+/* Intensity scaling: fewer decorations on calm settings. */
+.wenv-root[data-bg-level="1"] .wenv-mote:nth-child(odd),
+.wenv-root[data-bg-level="1"] .wenv-bubble:nth-child(n + 8),
+.wenv-root[data-bg-level="1"] .wenv-star:nth-child(n + 9),
+.wenv-root[data-bg-level="1"] .wenv-pixel-float:nth-child(n + 6),
+.wenv-root[data-bg-level="1"] .wenv-sand-mote:nth-child(n + 10),
+.wenv-root[data-bg-level="1"] .wenv-raindrop:nth-child(n + 5),
+.wenv-root[data-bg-level="1"] .wenv-suit-float:nth-child(n + 4) {
+  display: none;
+}
+.wenv-root[data-bg-level="3"] .wenv-mote,
+.wenv-root[data-bg-level="3"] .wenv-bubble {
+  opacity: 0.95;
+}
+
+/* Animations stop completely when the user turns backgrounds off or asks for
+   reduced motion. The static art (skies, hills, cityline) stays. */
+.wenv-root[data-bg="off"] * {
+  animation: none !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  .wenv-root * {
+    animation: none !important;
+  }
+}
+.wenv-root[data-bg="off"] .wenv-mote,
+.wenv-root[data-bg="off"] .wenv-bubble,
+.wenv-root[data-bg="off"] .wenv-raindrop,
+.wenv-root[data-bg="off"] .wenv-sand-mote,
+.wenv-root[data-bg="off"] .wenv-star,
+.wenv-root[data-bg="off"] .wenv-pixel-float {
+  display: none;
+}
+
+/* ------------------------------------------------------------------ shared */
+
+@keyframes wenv-drift-x {
+  from { transform: translate3d(6vw, 0, 0); }
+  to { transform: translate3d(-18vw, 0, 0); }
+}
+@keyframes wenv-rise {
+  from { transform: translate3d(0, 12vh, 0) scale(0.85); opacity: 0; }
+  15% { opacity: 0.85; }
+  85% { opacity: 0.75; }
+  to { transform: translate3d(2vw, -112vh, 0) scale(1.12); opacity: 0; }
+}
+@keyframes wenv-rise-slow {
+  from { transform: translate3d(0, 100vh, 0); opacity: 0; }
+  12% { opacity: 0.9; }
+  to { transform: translate3d(-3vw, -20vh, 0); opacity: 0; }
+}
+@keyframes wenv-twinkle {
+  0%, 100% { opacity: 0.15; }
+  50% { opacity: 1; }
+}
+@keyframes wenv-sway {
+  0%, 100% { transform: rotate(-3deg); }
+  50% { transform: rotate(3deg); }
+}
+@keyframes wenv-float-y {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-14px); }
+}
+@keyframes wenv-flicker {
+  0%, 92%, 100% { opacity: 1; }
+  93% { opacity: 0.35; }
+  95% { opacity: 0.9; }
+  97% { opacity: 0.5; }
+}
+@keyframes wenv-glitch-shift {
+  0%, 92%, 100% { transform: translate3d(0, 0, 0); opacity: 0; }
+  93% { transform: translate3d(-4px, 0, 0); opacity: 0.5; }
+  94% { transform: translate3d(5px, -2px, 0); opacity: 0.35; }
+  95% { transform: translate3d(0, 1px, 0); opacity: 0.15; }
+}
+
+.wenv-mote {
+  position: absolute;
+  width: 3px;
+  height: 3px;
+  border-radius: 0;
+  animation: wenv-rise-slow linear infinite;
+  opacity: 0.55;
+}
+.wenv-mote-blue { background: #7fdff0; box-shadow: 0 0 4px #35e0d0; }
+.wenv-mote-pink { background: #ff7ae0; box-shadow: 0 0 4px #ff2fd0; }
+.wenv-mote-warm { background: #ffd08a; box-shadow: 0 0 4px #ff9f68; }
+.wenv-mote-gold { background: #f4d68a; box-shadow: 0 0 4px #e8b84a; }
+.wenv-mote-white { background: #ffffff; box-shadow: 0 0 4px #bfe8ff; }
+.wenv-mote-slow { animation-duration: 26s; opacity: 0.3; }
+
+/* ------------------------------------------------------------------- OCEAN */
+
+.wenv-palette[data-palette="ocean"],
+.wenv-root[data-world-scene="ocean"] {
+  background: linear-gradient(180deg, #0b4f6e 0%, #073a56 30%, #052738 62%, #02131d 100%);
+}
+
+.wenv-ocean-glow {
+  background:
+    radial-gradient(ellipse 70% 34% at 50% -6%, rgba(140, 240, 255, 0.45), transparent 70%),
+    radial-gradient(ellipse 40% 30% at 82% 22%, rgba(53, 224, 208, 0.16), transparent 70%),
+    radial-gradient(ellipse 50% 30% at 12% 62%, rgba(30, 140, 200, 0.18), transparent 70%);
+  animation: wenv-ocean-light 16s ease-in-out infinite;
+}
+@keyframes wenv-ocean-light {
+  0%, 100% { opacity: 0.75; transform: translateY(0) scaleY(1); }
+  50% { opacity: 1; transform: translateY(-1.5%) scaleY(1.05); }
+}
+
+.wenv-water-caustics {
+  background-image:
+    repeating-linear-gradient(104deg, rgba(180, 250, 255, 0.055) 0 2px, transparent 2px 26px),
+    repeating-linear-gradient(76deg, rgba(120, 230, 255, 0.045) 0 2px, transparent 2px 34px);
+  mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.9), transparent 78%);
+  animation: wenv-caustics 22s linear infinite;
+}
+@keyframes wenv-caustics {
+  from { background-position: 0 0, 0 0; }
+  to { background-position: 180px 60px, -140px 80px; }
+}
+
+.wenv-ocean-floor {
+  top: auto;
+  bottom: 0;
+  height: 26vh;
+  background:
+    radial-gradient(ellipse 60% 100% at 20% 100%, rgba(12, 60, 52, 0.85), transparent 70%),
+    radial-gradient(ellipse 70% 100% at 78% 100%, rgba(9, 48, 44, 0.9), transparent 72%),
+    linear-gradient(180deg, transparent, rgba(2, 14, 20, 0.85));
+}
+
+.wenv-seaweed-row {
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 46vh;
+  pointer-events: none;
+}
+.wenv-seaweed {
+  position: absolute;
+  bottom: 0;
+  width: 14px;
+  transform-origin: bottom center;
+  animation: wenv-seaweed-sway ease-in-out infinite;
+  opacity: 0.6;
+}
+.wenv-seaweed span {
+  display: block;
+  margin: 0 auto;
+  width: 100%;
+  height: 34%;
+  border-radius: 6px 6px 2px 2px;
+  background: linear-gradient(180deg, #38c08a, #14664a);
+  box-shadow: 0 0 8px rgba(56, 192, 138, 0.3);
+  transform-origin: bottom center;
+}
+.wenv-seaweed span:nth-child(2) { width: 74%; height: 30%; background: linear-gradient(180deg, #2ea374, #0f4d38); }
+.wenv-seaweed span:nth-child(3) { width: 54%; height: 26%; background: linear-gradient(180deg, #268a63, #0c3d2d); }
+@keyframes wenv-seaweed-sway {
+  0%, 100% { transform: rotate(-5deg) skewX(2deg); }
+  50% { transform: rotate(6deg) skewX(-2deg); }
+}
+
+.wenv-bubble {
+  position: absolute;
+  bottom: -6vh;
+  width: var(--bubble-size, 5px);
+  height: var(--bubble-size, 5px);
+  border-radius: 50%;
+  border: 2px solid rgba(190, 250, 255, 0.65);
+  background: rgba(190, 250, 255, 0.12);
+  box-shadow: inset 0 0 3px rgba(255, 255, 255, 0.6), 0 0 6px rgba(53, 224, 208, 0.25);
+  animation: wenv-bubble-rise linear infinite;
+}
+@keyframes wenv-bubble-rise {
+  0% { transform: translate3d(0, 0, 0) scale(0.7); opacity: 0; }
+  10% { opacity: 0.85; }
+  50% { transform: translate3d(14px, -52vh, 0) scale(1); }
+  90% { opacity: 0.6; }
+  100% { transform: translate3d(-10px, -108vh, 0) scale(1.15); opacity: 0; }
+}
+
+.wenv-fish {
+  position: absolute;
+  left: -18vw;
+  animation: wenv-fish-swim linear infinite;
+  opacity: 0.75;
+}
+.wenv-fish-body {
+  display: block;
+  width: 34px;
+  height: 16px;
+  background: linear-gradient(90deg, #ffb45c, #ff7a3d);
+  clip-path: polygon(0 50%, 26% 6%, 74% 6%, 100% 50%, 74% 94%, 26% 94%);
+  position: relative;
+}
+.wenv-fish-body::after {
+  content: "";
+  position: absolute;
+  inset: auto 60% 40% auto;
+  width: 4px;
+  height: 4px;
+  background: #12222b;
+}
+.wenv-fish-body-b { background: linear-gradient(90deg, #6fd8ff, #3aa0e0); width: 26px; height: 12px; }
+.wenv-fish-body-c { background: linear-gradient(90deg, #c9a0ff, #8a5fd0); width: 20px; height: 10px; }
+@keyframes wenv-fish-swim {
+  0% { transform: translate3d(0, 0, 0) scaleX(1); }
+  46% { transform: translate3d(60vw, -4vh, 0) scaleX(1); }
+  50% { transform: translate3d(62vw, -4vh, 0) scaleX(-1); }
+  96% { transform: translate3d(4vw, 3vh, 0) scaleX(-1); }
+  100% { transform: translate3d(-4vw, 3vh, 0) scaleX(1); }
+}
+
+/* --------------------------------------------------------------- CYBERPUNK */
+
+.wenv-palette[data-palette="cyberpunk"],
+.wenv-root[data-world-scene="cyberpunk"] {
+  background: linear-gradient(180deg, #07021a 0%, #12042b 44%, #1c0633 72%, #2a0840 100%);
+}
+.wenv-cyber-sky {
+  background:
+    radial-gradient(ellipse 110% 52% at 50% 108%, rgba(255, 47, 208, 0.3), transparent 62%),
+    radial-gradient(ellipse 70% 40% at 18% 12%, rgba(56, 130, 255, 0.22), transparent 66%),
+    radial-gradient(ellipse 50% 30% at 86% 30%, rgba(168, 85, 247, 0.18), transparent 70%);
+  animation: wenv-sky-pulse 14s ease-in-out infinite;
+}
+@keyframes wenv-sky-pulse {
+  0%, 100% { opacity: 0.8; }
+  50% { opacity: 1; }
+}
+
+.wenv-grid-floor {
+  top: auto;
+  bottom: 0;
+  height: 42vh;
+  background-image:
+    linear-gradient(rgba(255, 47, 208, 0.28) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(56, 190, 255, 0.2) 1px, transparent 1px);
+  background-size: 48px 34px;
+  transform: perspective(340px) rotateX(62deg);
+  transform-origin: bottom;
+  mask-image: linear-gradient(to top, #000 8%, transparent 80%);
+  opacity: 0.7;
+  animation: wenv-grid-run 6s linear infinite;
+}
+@keyframes wenv-grid-run {
+  from { background-position: 0 0, 0 0; }
+  to { background-position: 0 34px, 0 0; }
+}
+
+.wenv-cityline {
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 46vh;
+  display: block;
+}
+.wenv-cityline > span {
+  position: absolute;
+  bottom: 0;
+  background: #0b0320;
+  border-top: 2px solid rgba(255, 47, 208, 0.35);
+  box-shadow: 0 -6px 18px rgba(255, 47, 208, 0.12);
+}
+.wenv-cityline-far { height: 34vh; opacity: 0.75; }
+.wenv-cityline-far > span { background: #0e0526; border-top-color: rgba(56, 190, 255, 0.24); }
+.wenv-cityline-near > span { background: #07021a; }
+.wenv-window {
+  position: absolute;
+  inset: 12% 18% auto 18%;
+  height: 3px;
+  background: repeating-linear-gradient(90deg, rgba(255, 225, 77, 0.75) 0 3px, transparent 3px 8px);
+  animation: wenv-twinkle 4.5s steps(6) infinite;
+}
+.wenv-window-warm {
+  background: repeating-linear-gradient(90deg, rgba(255, 190, 120, 0.8) 0 3px, transparent 3px 9px);
+}
+
+.wenv-neon-sign {
+  position: absolute;
+  width: 46px;
+  height: 8px;
+  background: var(--neon, #ff2fd0);
+  box-shadow: 0 0 10px var(--neon, #ff2fd0), 0 0 26px var(--neon, #ff2fd0);
+  opacity: 0.75;
+  animation: wenv-flicker 6s steps(24) infinite;
+}
+.wenv-neon-sign-soft { width: 26px; height: 5px; opacity: 0.6; }
+
+.wenv-rain {
+  background-image: repeating-linear-gradient(
+    104deg,
+    rgba(150, 220, 255, 0) 0 10px,
+    rgba(150, 220, 255, 0.16) 10px 12px,
+    rgba(150, 220, 255, 0) 12px 30px
+  );
+  background-size: 60px 100%;
+  animation: wenv-rain-fall 0.9s linear infinite;
+  opacity: 0.5;
+  mask-image: linear-gradient(180deg, transparent, #000 28%, #000 100%);
+}
+@keyframes wenv-rain-fall {
+  from { background-position: 0 0; }
+  to { background-position: -34px 220px; }
+}
+.wenv-raindrop {
+  position: absolute;
+  top: -20vh;
+  width: 1px;
+  height: 16vh;
+  background: linear-gradient(180deg, transparent, rgba(150, 220, 255, 0.45));
+  animation: wenv-drop linear infinite;
+}
+@keyframes wenv-drop {
+  from { transform: translate3d(0, 0, 0); opacity: 0; }
+  10% { opacity: 1; }
+  to { transform: translate3d(-5vw, 130vh, 0); opacity: 0.2; }
+}
+
+.wenv-glitch {
+  background: linear-gradient(180deg, transparent 42%, rgba(255, 47, 208, 0.16) 43%, transparent 45%);
+  animation: wenv-glitch-shift 11s steps(1) infinite;
+  mix-blend-mode: screen;
+}
+
+/* ------------------------------------------------------------------ ARCADE */
+
+.wenv-palette[data-palette="arcade"],
+.wenv-root[data-world-scene="arcade"] {
+  background: radial-gradient(ellipse 90% 60% at 50% 0%, #22073d 0%, #12021f 55%, #07000d 100%);
+}
+.wenv-arcade-sky {
+  background:
+    radial-gradient(ellipse 80% 55% at 50% 0%, rgba(255, 225, 77, 0.14), transparent 62%),
+    radial-gradient(ellipse 60% 40% at 80% 100%, rgba(255, 56, 96, 0.16), transparent 65%),
+    radial-gradient(ellipse 50% 40% at 14% 74%, rgba(57, 255, 136, 0.1), transparent 66%);
+}
+.wenv-crt {
+  background: repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.28) 0 1px, transparent 1px 3px);
+  opacity: 0.55;
+}
+.wenv-arcade-frame {
+  position: absolute;
+  inset: 0;
+}
+.wenv-arcade-glyph {
+  position: absolute;
+  font-family: var(--font-pixel-en);
+  font-size: clamp(14px, 2.4vw, 30px);
+  color: var(--glyph-color, #ffe14d);
+  text-shadow: 0 0 12px var(--glyph-color, #ffe14d);
+  opacity: 0.35;
+  animation: wenv-glyph-bob ease-in-out infinite;
+}
+@keyframes wenv-glyph-bob {
+  0%, 100% { transform: translateY(0) scale(1); opacity: 0.25; }
+  50% { transform: translateY(-10px) scale(1.08); opacity: 0.5; }
+}
+.wenv-star {
+  position: absolute;
+  width: 3px;
+  height: 3px;
+  background: #fff6d6;
+  box-shadow: 0 0 6px #ffe14d;
+  animation: wenv-twinkle steps(3) infinite;
+}
+.wenv-pixel-float {
+  position: absolute;
+  bottom: -4vh;
+  width: 6px;
+  height: 6px;
+  background: var(--px, #ffe14d);
+  box-shadow: 0 0 8px var(--px, #ffe14d);
+  animation: wenv-rise linear infinite;
+  opacity: 0.7;
+}
+
+/* -------------------------------------------------- MUSHROOM (platformer) */
+
+.wenv-palette[data-palette="mushroom"],
+.wenv-root[data-world-scene="mushroom"] {
+  background: linear-gradient(180deg, #5c94fc 0%, #4a86f0 46%, #3f7ae8 72%, #2f6ad9 100%);
+}
+.wenv-mushroom-sky {
+  background:
+    radial-gradient(ellipse 60% 30% at 76% 8%, rgba(255, 255, 255, 0.5), transparent 70%),
+    radial-gradient(ellipse 80% 40% at 50% 108%, rgba(20, 70, 170, 0.4), transparent 70%);
+}
+.wenv-cloud {
+  position: absolute;
+  left: -30vw;
+  width: 120px;
+  height: 30px;
+  animation: wenv-cloud-move linear infinite;
+  opacity: 0.92;
+}
+.wenv-cloud span {
+  position: absolute;
+  background: var(--cloud-tone, #fff);
+  border-radius: 2px;
+  box-shadow: 0 4px 0 rgba(20, 60, 150, 0.12);
+}
+.wenv-cloud span:nth-child(1) { inset: 10px 0 auto 0; height: 18px; }
+.wenv-cloud span:nth-child(2) { inset: 0 auto auto 18px; width: 34px; height: 20px; }
+.wenv-cloud span:nth-child(3) { inset: 4px 24px auto auto; width: 26px; height: 16px; }
+@keyframes wenv-cloud-move {
+  from { transform: translate3d(0, 0, 0); }
+  to { transform: translate3d(150vw, 0, 0); }
+}
+
+.wenv-hills {
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 34vh;
+}
+.wenv-hill {
+  position: absolute;
+  bottom: 0;
+  width: 34%;
+  height: var(--hill-h, 26vh);
+  background: radial-gradient(ellipse 60% 100% at 50% 100%, #3fa63f 0%, #2b8a2b 60%, #1f6b1f 100%);
+  border-radius: 50% 50% 0 0 / 100% 100% 0 0;
+  border-top: 4px solid #55c055;
+}
+.wenv-block-row {
+  position: absolute;
+  top: 22%;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  gap: 18px;
+}
+.wenv-qblock {
+  width: 26px;
+  height: 26px;
+  background: linear-gradient(180deg, #ffcc33, #d69b12);
+  border: 3px solid #7a4f06;
+  box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.25);
+  animation: wenv-qblock-bob 2.4s steps(2) infinite;
+  position: relative;
+}
+.wenv-qblock::after {
+  content: "?";
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-family: var(--font-pixel-en);
+  font-size: 13px;
+  color: #6b3f00;
+}
+@keyframes wenv-qblock-bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+.wenv-coin {
+  position: absolute;
+  top: 34%;
+  width: 14px;
+  height: 22px;
+  animation: wenv-coin-spin steps(6) infinite;
+}
+.wenv-coin span {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(180deg, #ffe680, #f0b21e);
+  border: 2px solid #a8770a;
+  clip-path: polygon(30% 0, 70% 0, 100% 22%, 100% 78%, 70% 100%, 30% 100%, 0 78%, 0 22%);
+}
+@keyframes wenv-coin-spin {
+  0% { transform: scaleX(1) translateY(0); }
+  50% { transform: scaleX(0.15) translateY(-6px); }
+  100% { transform: scaleX(1) translateY(0); }
+}
+.wenv-pipe {
+  position: absolute;
+  bottom: 0;
+  width: 62px;
+  height: 14vh;
+  background: linear-gradient(90deg, #1f9e3f, #37c45a 40%, #1b8a35);
+  border: 3px solid #0f5c22;
+  border-bottom: none;
+}
+.wenv-pipe::before {
+  content: "";
+  position: absolute;
+  top: -14px;
+  left: -8px;
+  right: -8px;
+  height: 16px;
+  background: linear-gradient(90deg, #24b348, #48d96c 40%, #1f9e3f);
+  border: 3px solid #0f5c22;
+}
+.wenv-pipe-sm { width: 44px; height: 9vh; }
+
+/* ------------------------------------------------- GTA VI (vice sunset) */
+
+.wenv-palette[data-palette="vice"],
+.wenv-root[data-world-scene="vice"] {
+  background: linear-gradient(180deg, #1b0a33 0%, #4a1145 34%, #8a1f52 56%, #d1437a 70%, #2a0b2e 100%);
+}
+.wenv-vice-sky {
+  background:
+    radial-gradient(ellipse 60% 34% at 50% 44%, rgba(255, 214, 140, 0.5), transparent 68%),
+    radial-gradient(ellipse 110% 50% at 50% 62%, rgba(255, 122, 184, 0.34), transparent 66%);
+  animation: wenv-sky-pulse 18s ease-in-out infinite;
+}
+.wenv-sun {
+  position: absolute;
+  left: 50%;
+  top: 30%;
+  width: 26vh;
+  height: 26vh;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: linear-gradient(180deg, #fff0b8, #ffb454 45%, #ff7ab8 100%);
+  mask-image: repeating-linear-gradient(180deg, #000 0 12px, transparent 12px 17px);
+  box-shadow: 0 0 60px rgba(255, 140, 180, 0.45);
+  opacity: 0.9;
+}
+.wenv-vice-water {
+  position: absolute;
+  inset: 66% 0 0 0;
+  background:
+    repeating-linear-gradient(0deg, rgba(255, 122, 184, 0.16) 0 2px, transparent 2px 12px),
+    linear-gradient(180deg, rgba(255, 122, 184, 0.2), rgba(20, 6, 30, 0.9));
+  animation: wenv-water-shimmer 7s ease-in-out infinite;
+}
+@keyframes wenv-water-shimmer {
+  0%, 100% { background-position: 0 0, 0 0; opacity: 0.85; }
+  50% { background-position: 0 12px, 0 0; opacity: 1; }
+}
+.wenv-vice-city {
+  height: 22vh;
+  bottom: 32vh;
+  opacity: 0.9;
+}
+.wenv-vice-city > span {
+  background: #2a0b2e;
+  border-top-color: rgba(255, 190, 120, 0.45);
+}
+.wenv-palm {
+  position: absolute;
+  bottom: 0;
+  width: 8px;
+  transform-origin: bottom center;
+  animation: wenv-sway ease-in-out infinite;
+  transform: scale(var(--palm-scale, 1));
+}
+.wenv-palm-trunk {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, #2b1c14, #54382a 55%, #1d120c);
+  border-radius: 2px;
+}
+.wenv-palm-leaf {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  width: 46px;
+  height: 10px;
+  background: linear-gradient(90deg, #14532d, #22c55e);
+  transform-origin: 0 50%;
+  transform: translate(-50%, -4px) rotate(-26deg);
+  border-radius: 0 8px 8px 0;
+}
+.wenv-palm-leaf-2 { transform: translate(-50%, -4px) rotate(22deg); width: 40px; opacity: 0.85; }
+.wenv-palm-leaf-3 { transform: translate(-50%, -6px) rotate(-72deg); width: 34px; opacity: 0.7; }
+
+/* ---------------------------------------------------------------- BALATRO */
+
+.wenv-palette[data-palette="balatro"],
+.wenv-root[data-world-scene="balatro"] {
+  background: radial-gradient(ellipse 80% 60% at 50% 0%, #2a1024 0%, #150811 55%, #08040a 100%);
+}
+.wenv-balatro-glow {
+  background:
+    radial-gradient(ellipse 70% 40% at 50% -4%, rgba(226, 59, 78, 0.3), transparent 62%),
+    radial-gradient(ellipse 50% 40% at 50% 112%, rgba(120, 40, 90, 0.35), transparent 64%);
+  animation: wenv-sky-pulse 12s ease-in-out infinite;
+}
+.wenv-balatro-vignette {
+  box-shadow: inset 0 0 220px 60px rgba(0, 0, 0, 0.85);
+  background-image: repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.022) 0 2px, transparent 2px 9px);
+}
+.wenv-cards {
+  position: absolute;
+  inset: 0;
+}
+.wenv-card {
+  position: absolute;
+  left: -14vw;
+  top: 8%;
+  width: 46px;
+  height: 66px;
+  background: linear-gradient(160deg, #f6e9e3, #d9c4bc);
+  border: 2px solid #2a0f18;
+  border-radius: 4px;
+  box-shadow: 3px 4px 0 rgba(0, 0, 0, 0.5);
+  animation: wenv-card-drift linear infinite;
+  display: grid;
+  place-items: center;
+}
+.wenv-card-suit {
+  font-size: 22px;
+  color: #b91c3c;
+  line-height: 1;
+}
+.wenv-card-1 { top: 22%; animation-duration: 26s; }
+.wenv-card-2 { top: 48%; animation-duration: 32s; }
+.wenv-card-3 { top: 66%; animation-duration: 24s; }
+.wenv-card-4 { top: 34%; animation-duration: 38s; }
+.wenv-card-5 { top: 80%; animation-duration: 30s; }
+@keyframes wenv-card-drift {
+  0% { transform: translate3d(0, 0, 0) rotate(0deg); opacity: 0; }
+  10% { opacity: 0.8; }
+  50% { transform: translate3d(60vw, -6vh, 0) rotate(var(--card-rot, 12deg)); }
+  90% { opacity: 0.7; }
+  100% { transform: translate3d(128vw, 4vh, 0) rotate(calc(var(--card-rot, 12deg) * -1)); opacity: 0; }
+}
+.wenv-suits {
+  background-image:
+    radial-gradient(circle at 12% 22%, rgba(226, 59, 78, 0.09) 0 2px, transparent 3px),
+    radial-gradient(circle at 78% 62%, rgba(246, 233, 227, 0.07) 0 2px, transparent 3px);
+}
+.wenv-suit-float {
+  position: absolute;
+  font-size: clamp(18px, 2.6vw, 34px);
+  color: var(--suit-color, #e23b4e);
+  opacity: 0.22;
+  text-shadow: 0 0 14px currentColor;
+  animation: wenv-suit-bob ease-in-out infinite;
+}
+@keyframes wenv-suit-bob {
+  0%, 100% { transform: translateY(0) rotate(-6deg); }
+  50% { transform: translateY(-18px) rotate(6deg); }
+}
+.wenv-casino-light {
+  background:
+    conic-gradient(from 190deg at 50% -12%, rgba(255, 214, 140, 0.16) 0 12deg, transparent 12deg 30deg),
+    radial-gradient(ellipse 46% 26% at 50% -6%, rgba(255, 226, 170, 0.22), transparent 70%);
+  animation: wenv-casino-flicker 9s ease-in-out infinite;
+}
+@keyframes wenv-casino-flicker {
+  0%, 100% { opacity: 0.85; }
+  50% { opacity: 1; }
+}
+
+/* ---------------------------------------------------- BREAKING BAD (desert) */
+
+.wenv-palette[data-palette="desert"],
+.wenv-root[data-world-scene="desert"] {
+  background: linear-gradient(180deg, #2a2010 0%, #4a3418 26%, #7a4a1e 44%, #a8642a 58%, #3a2612 100%);
+}
+.wenv-desert-sky {
+  background:
+    radial-gradient(ellipse 60% 30% at 78% 34%, rgba(255, 214, 120, 0.55), transparent 66%),
+    radial-gradient(ellipse 100% 44% at 50% 56%, rgba(224, 115, 58, 0.35), transparent 68%),
+    linear-gradient(180deg, rgba(20, 16, 10, 0.2), rgba(20, 12, 6, 0.5));
+  animation: wenv-desert-breathe 20s ease-in-out infinite;
+}
+@keyframes wenv-desert-breathe {
+  0%, 100% { opacity: 0.9; }
+  50% { opacity: 1; }
+}
+.wenv-desert-sun {
+  position: absolute;
+  left: 76%;
+  top: 30%;
+  width: 16vh;
+  height: 16vh;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: radial-gradient(circle, #ffe9a8, #ffb45c 60%, #ff8a3d 100%);
+  filter: blur(1px);
+  box-shadow: 0 0 80px rgba(255, 170, 90, 0.4);
+  opacity: 0.85;
+}
+.wenv-heat-haze {
+  background: repeating-linear-gradient(
+    180deg,
+    rgba(255, 220, 170, 0.05) 0 2px,
+    transparent 2px 7px
+  );
+  mask-image: linear-gradient(180deg, transparent 40%, #000 60%, transparent 92%);
+  animation: wenv-haze 5s ease-in-out infinite;
+  opacity: 0.6;
+}
+@keyframes wenv-haze {
+  0%, 100% { transform: translateY(0) scaleY(1); }
+  50% { transform: translateY(-6px) scaleY(1.06); }
+}
+.wenv-mountains {
+  position: absolute;
+  inset: auto 0 34% 0;
+  height: 40vh;
+}
+.wenv-mountain {
+  position: absolute;
+  bottom: 0;
+  width: 42%;
+  height: var(--mtn-h, 26vh);
+  background: var(--mtn-tone, #4a4030);
+  clip-path: polygon(0 100%, 22% 34%, 40% 58%, 56% 12%, 74% 54%, 88% 30%, 100% 100%);
+  opacity: 0.9;
+}
+.wenv-desert-floor {
+  top: auto;
+  bottom: 0;
+  height: 40vh;
+  background:
+    radial-gradient(ellipse 90% 100% at 30% 100%, #8a5a28, transparent 70%),
+    radial-gradient(ellipse 80% 100% at 80% 100%, #6f4620, transparent 72%),
+    linear-gradient(180deg, rgba(58, 38, 18, 0.4), #2a1c0e);
+}
+.wenv-cactus {
+  position: absolute;
+  bottom: 6vh;
+  width: 16px;
+  background: linear-gradient(90deg, #1f5c2e, #37a04a 50%, #174726);
+  border-radius: 3px;
+  animation: wenv-sway 8s ease-in-out infinite;
+  transform-origin: bottom center;
+}
+.wenv-cactus-arm {
+  position: absolute;
+  left: -12px;
+  top: 34%;
+  width: 12px;
+  height: 6px;
+  background: #2b8442;
+  border-radius: 3px;
+  box-shadow: 0 -20px 0 0 #2b8442;
+}
+.wenv-sandstorm {
+  background-image: repeating-linear-gradient(
+    12deg,
+    rgba(240, 210, 150, 0.06) 0 2px,
+    transparent 2px 14px
+  );
+  animation: wenv-sand-drift 9s linear infinite;
+}
+@keyframes wenv-sand-drift {
+  from { background-position: 0 0; }
+  to { background-position: 120px 8px; }
+}
+.wenv-sand-mote {
+  position: absolute;
+  width: var(--sand-size, 3px);
+  height: var(--sand-size, 3px);
+  background: rgba(240, 210, 150, 0.7);
+  animation: wenv-sand-fly linear infinite;
+}
+@keyframes wenv-sand-fly {
+  from { transform: translate3d(-10vw, 0, 0); opacity: 0; }
+  15% { opacity: 0.8; }
+  to { transform: translate3d(110vw, -6vh, 0); opacity: 0; }
+}
+
+/* ---------------------------------------------------------------- CLASSIC */
+
+.wenv-palette[data-palette="classic"],
+.wenv-root[data-world-scene="classic"] {
+  background:
+    radial-gradient(ellipse 90% 60% at 50% 0%, rgba(52, 68, 130, 0.28), transparent 66%),
+    linear-gradient(180deg, #0b0e1c 0%, #10152b 60%, #070a14 100%);
+}
+.wenv-classic-glow {
+  background-image:
+    linear-gradient(to right, rgba(114, 137, 218, 0.05) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(114, 137, 218, 0.05) 1px, transparent 1px);
+  background-size: 16px 16px;
+}
+
+
+/* ============================================================================
+   THEME CROSS-FADE + CONTENT STACKING
+   The world change never flashes: the palette layer and the page surfaces
+   cross-fade together, and the shell always renders above the backdrop.
+   ========================================================================== */
+
+.wenv-palette {
+  position: absolute;
+  inset: 0;
+  animation: wenv-palette-in 520ms ease-out;
+  transition: background-color 420ms ease;
+}
+@keyframes wenv-palette-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.jl-shell {
+  position: relative;
+  z-index: 1;
+}
+
+/* Cards/panels follow the world palette, so the whole page changes — not just
+   the background. Scoped to the new world attribute only. */
+html:not([data-world="classic"]) .card {
+  background-image: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--world-glow) 22%, transparent),
+    transparent 62%
+  );
+}
+
+/* Readability guard: text surfaces always keep a solid-enough plate over the
+   animated environment. */
+html:not([data-world="classic"]) .card,
+html:not([data-world="classic"]) .input,
+html:not([data-world="classic"]) .chip,
+html:not([data-world="classic"]) .btn {
+  background-color: var(--card);
+}
+html:not([data-world="classic"]) .btn:not(.btn-primary) {
+  background-color: var(--card2);
+}
+
+
+/* ------------------------------------------------------- SETTINGS PREVIEW */
+/* The preview is a true miniature of the live environment: the stage is a
+   full viewport (100vw × 100vh) scaled down to the card width, so vh/vw-based
+   decorations land exactly where they do on the real page. Only the scale is
+   computed in JS (a ResizeObserver in Settings). */
+.wenv-preview {
+  position: relative;
+  aspect-ratio: 16 / 10;
+  min-height: 168px;
+  overflow: hidden;
+}
+.wenv-preview-scene {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  contain: paint;
+}
+.wenv-preview-stage {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  transform-origin: 0 0;
+  transform: scale(var(--preview-scale, 0.2));
+  pointer-events: none;
+}
+
+
+/* -------------------------------------------------------- CASINO BACKDROP */
+/* The casino owns its own environment. This fixed layer sits above the world
+   layer (it is inside the shell's stacking context) and paints the casino's
+   dark ambience, so the league theme never bleeds into the tables. */
+.casino-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 70% 50% at 50% -10%, rgba(217, 182, 88, 0.1), transparent 62%),
+    radial-gradient(ellipse 90% 60% at 50% 110%, rgba(0, 0, 0, 0.75), transparent 70%),
+    repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.012) 0 3px, transparent 3px 14px),
+    linear-gradient(180deg, #100b07 0%, #080604 100%);
+}

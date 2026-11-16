@@ -9,6 +9,8 @@ import { AvatarEditor } from "@/components/avatar/AvatarEditor";
 import { AudioSettings } from "@/components/prefs/AudioSettings";
 import { ShakeSettings } from "@/components/prefs/ShakeSettings";
 import { WorldThemePicker } from "@/components/themes/WorldThemePicker";
+import { BackgroundSettings } from "@/components/themes/BackgroundSettings";
+import { CasinoSettingsSection } from "@/components/casino/CasinoSettingsSection";
 import { usePlayerPrefs } from "@/components/prefs/PlayerPrefsProvider";
 
 const THEMES: [Appearance["theme"], string][] = [
@@ -162,11 +164,32 @@ export default function SettingsPage() {
           اضغط «تطبيق الثيم» ليُحفظ في حسابك.
         </p>
         <WorldThemePicker />
+        <div className="border-t-2 border-line pt-3">
+          <SectionTitle pixelIcon="sparkle">حركة الخلفية العامة</SectionTitle>
+          <BackgroundSettings />
+        </div>
       </section>
 
-      {/* 2 — Avatar Customization */}
+      {/* 2 — Music & sound effects */}
       <section className="card stack">
-        <SectionTitle pixelIcon="players">٢ · تخصيص الأفاتار (Pixel Art)</SectionTitle>
+        <SectionTitle pixelIcon="soundOn">٢ · الموسيقى والمؤثرات الصوتية</SectionTitle>
+        <AudioSettings />
+      </section>
+
+      {/* 3 — Screen shake & visual effects */}
+      <section className="card stack">
+        <SectionTitle pixelIcon="bolt" extra={<span className="chip !text-[10px]">افتراضي: متوقف</span>}>
+          ٣ · اهتزاز الشاشة والتأثيرات البصرية
+        </SectionTitle>
+        <ShakeSettings />
+        <div className="border-t-2 border-line pt-3">
+          <MatchAnimationsSetting />
+        </div>
+      </section>
+
+      {/* 4 — Avatar */}
+      <section className="card stack">
+        <SectionTitle pixelIcon="players">٤ · تخصيص الأفاتار (Pixel Art)</SectionTitle>
         <p className="text-xs sm:text-sm text-muted">
           مصمّم بسيط: بشرة، شعر، لون شعر، عيون، زي، وإكسسوار — كل الخيارات مجانية وفورية. يظهر الأفاتار بجانب اسمك في
           الترتيب والملف الشخصي وسجل المباريات.
@@ -174,22 +197,12 @@ export default function SettingsPage() {
         <AvatarEditor />
       </section>
 
-      {/* 3 — Music & Audio */}
+      {/* 5 — Blackjack */}
       <section className="card stack">
-        <SectionTitle pixelIcon="soundOn">٣ · الموسيقى والصوت</SectionTitle>
-        <AudioSettings />
-      </section>
-
-      {/* 4 — Screen Shake */}
-      <section className="card stack">
-        <SectionTitle pixelIcon="bolt">٤ · اهتزاز الشاشة المستمر</SectionTitle>
-        <ShakeSettings />
-      </section>
-
-      {/* 5 — Match Animations */}
-      <section className="card stack">
-        <SectionTitle pixelIcon="cards">٥ · حركات نتيجة المباراة</SectionTitle>
-        <MatchAnimationsSetting />
+        <SectionTitle pixelIcon="cards" extra={<span className="chip chip-accent !text-[10px]">كازينو مستقل</span>}>
+          ٥ · إعدادات البلاك جاك
+        </SectionTitle>
+        <CasinoSettingsSection />
       </section>
 
       {/* Part 3, 6, 8, 9: Chaos Mode, Trash Talk, Sound Effects, Animation Intensity */}

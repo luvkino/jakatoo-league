@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 import "./globals.css";
 import "./themes.css";
+import "./worlds.css";
 import { ChaosProvider } from "@/components/ChaosEngine";
 import { EasterEggProvider } from "@/components/easter/EasterEggProvider";
 import { LeagueProvider } from "@/components/LeagueProvider";
@@ -10,6 +11,7 @@ import { PlayerPrefsProvider, PREFS_BOOT_SCRIPT } from "@/components/prefs/Playe
 import { AudioManager } from "@/components/prefs/AudioManager";
 import { ShakeDriver } from "@/components/prefs/ScreenShake";
 import Shell from "@/components/Shell";
+import { WorldEnvironment } from "@/components/themes/WorldEnvironment";
 
 export const metadata: Metadata = {
   title: "JACKAROO LEAGUE — 8-BIT EDITION",
@@ -31,7 +33,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         <script dangerouslySetInnerHTML={{ __html: THEME_BOOT_SCRIPT }} />
         <script dangerouslySetInnerHTML={{ __html: PREFS_BOOT_SCRIPT }} />
       </head>
-      <body className="antialiased pixel-bg-grid">
+      <body className="antialiased">
         <SettingsProvider>
           <PlayerPrefsProvider>
             <ShakeDriver />
@@ -39,6 +41,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
             <LeagueProvider>
               <ChaosProvider>
                 <EasterEggProvider>
+                  <WorldEnvironment />
                   <Shell>{children}</Shell>
                 </EasterEggProvider>
               </ChaosProvider>
