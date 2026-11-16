@@ -920,6 +920,14 @@ html:not([data-world="classic"]) .btn:not(.btn-primary) {
    computed in JS (a ResizeObserver in Settings). */
 .wenv-preview {
   position: relative;
+  /* Definite inline-size: the frame lives in a fixed-width grid track
+     (sm:grid-cols-[220px_minmax(0,1fr)]). Without a definite width,
+     `aspect-ratio` + `min-height` lets the browser derive the width from
+     min-height × ratio (~269px) instead of the 220px track, overflowing the
+     track and overlapping the title/description/controls column. Pinning the
+     width to the track prevents that. */
+  width: 100%;
+  max-width: 100%;
   aspect-ratio: 16 / 10;
   min-height: 168px;
   overflow: hidden;

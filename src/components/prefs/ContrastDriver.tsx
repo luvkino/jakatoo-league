@@ -31,6 +31,7 @@ function applyTokens(t: ResolvedTokens) {
   set("--bad", t.bad);
   set("--accent", t.accent);
   set("--accent-fg", t.accentFg);
+  set("--accent-fg-strong", t.accentFgStrong);
   set("--accent-text", t.accentText);
 }
 

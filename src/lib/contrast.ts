@@ -264,15 +264,43 @@ export interface ResolvedTokens {
   bad: string;
   accent: string;
   accentFg: string;
+  accentFgStrong: string;
   accentText: string;
 }
+
+/**
+ * Target contrast for text painted on top of a solid accent background
+ * (e. `btn-primary` / the draw-page selected-player button). 4.5 is the WCAG
+ * AA floor; 4.9 gives a comfortable, clearly-readable margin. It is the best
+ * target achievable for every accent: the weakest (the balatro world's
+ * signature red) tops out at 4.97:1 with black text, so 4.9 is the highest
+ * floor that holds across all theme × accent combinations.
+ */
+export const ACCENT_FG_STRONG = 4.9;
+
+/**
+ * Surface used by `av-choice[aria-checked="true"]` (and the accent-tinted
+ * chips): `color-mix(accent 22%, card2)`. `--accent-text` must be guaranteed
+ * against THIS surface, not plain `card` — for dark themes `card2` is lighter
+ * than `card`, so the tinted surface is lighter and a light `--accent-text`
+ * loses contrast exactly where the plain-card guarantee said it was safe.
+ */
+export const ACCENT_TEXT_SURFACE_MIX = 0.22;
 
 /**
  * Resolve the full effective token set for a theme (or world) × accent.
  *
  * The returned text colours are guaranteed (by construction) to meet 4.5:1
- * against their backgrounds; this is what the automated tests assert and what
- * the live app applies via Settings → documentElement.
+ * against the surfaces they are actually painted on:
+ *  - `fg` / `muted`        → `card`
+ *  - `accentFg`            → solid `accent` (WCAG AA floor)
+ *  - `accentFgStrong`      → solid `accent` (comfortable margin, for
+ *                            selected-player / primary-button fills)
+ *  - `accentText`          → the accent-tinted surface
+ *                            `color-mix(accent 22%, card2)` used by
+ *                            `av-choice[aria-checked=true]` / `chip-accent`
+ * This is what the automated tests assert and what the live app applies via
+ * Settings → documentElement.
  */
 export function resolveTokens(
   theme: keyof typeof THEME_PALETTES | keyof typeof WORLD_PALETTES,
@@ -287,13 +315,19 @@ export function resolveTokens(
   const fg = ensureContrast(pal.fg, pal.card, 4.5);
   const muted = ensureContrast(pal.muted, pal.card, 4.5);
   const accentFg = ensureContrast(accent.accentFg, accent.accent, 4.5);
-  // accent-text sits on card/chip surfaces. On light surfaces use the accent's
-  // dark, hue-preserving foreground; on dark surfaces mix toward the (light)
-  // foreground. Then enforce the contrast minimum without flattening to one
-  // colour, so each theme keeps its identity.
+  // Strong foreground for text on a solid accent fill (selected-player
+  // buttons). Guaranteed at a comfortable margin above the AA floor.
+  const accentFgStrong = ensureContrast(accent.accentFg, accent.accent, ACCENT_FG_STRONG);
+  // accent-text sits on accent-tinted surfaces: `av-choice[aria-checked=true]`
+  // paints it on `color-mix(accent 22%, card2)`, and `chip-accent` on
+  // `color-mix(accent 20%, card)`. Guarantee it against the *tinted* surface
+  // (the card2-based one is the most demanding for dark themes) — guaranteeing
+  // against plain `card` alone let several theme × accent combinations fall
+  // below 4.5:1 on the real painted surface.
+  const accentTextBg = mix(accent.accent, pal.card2, ACCENT_TEXT_SURFACE_MIX);
   const cardLum = relativeLuminance(pal.card);
   const accentTextRaw = cardLum > 0.4 ? accent.accentFg : mix(accent.accent, pal.fg, 0.78);
-  const accentText = ensureContrast(accentTextRaw, pal.card, 4.5);
+  const accentText = ensureContrast(accentTextRaw, accentTextBg, 4.5);
 
   return {
     theme,
@@ -308,6 +342,7 @@ export function resolveTokens(
     bad: pal.bad,
     accent: accent.accent,
     accentFg,
+    accentFgStrong,
     accentText,
   };
 }
