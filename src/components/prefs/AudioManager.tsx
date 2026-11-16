@@ -20,9 +20,10 @@ import {
   startMusic,
   stopMusic,
 } from "@/lib/audio/engine";
-import { audioLevels } from "@/lib/prefs";
+import { audioLevels, isMuted } from "@/lib/prefs";
 import { setSfxLevel } from "@/lib/sound";
 import { setEggSfxLevel } from "@/components/easter/eggSfx";
+import { setCasinoGlobalMuted } from "@/lib/casino/sound";
 import { usePlayerPrefs } from "./PlayerPrefsProvider";
 
 export function AudioManager() {
@@ -30,13 +31,17 @@ export function AudioManager() {
   const unlockedRef = useRef(false);
   const themeRef = useRef(prefs.theme);
   const levels = audioLevels(prefs);
-  const shouldPlay = prefs.musicEnabled && levels.music > 0;
+  // Central global mute: master volume 0 silences every bus at once.
+  const muted = isMuted(prefs);
+  const shouldPlay = !muted && prefs.musicEnabled && levels.music > 0;
 
-  // Keep the SFX buses in sync with the sliders (all synths, eggs included).
+  // Keep EVERY SFX bus in sync with the sliders + the single global mute
+  // (league/general SFX, Easter-Egg SFX and Casino SFX all follow it).
   useEffect(() => {
-    setSfxLevel(prefs.sfxEnabled ? levels.sfx : 0);
-    setEggSfxLevel(prefs.sfxEnabled ? levels.sfx : 0);
-  }, [prefs.sfxEnabled, levels.sfx]);
+    setSfxLevel(muted || !prefs.sfxEnabled ? 0 : levels.sfx);
+    setEggSfxLevel(muted || !prefs.sfxEnabled ? 0 : levels.sfx);
+    setCasinoGlobalMuted(muted);
+  }, [muted, prefs.sfxEnabled, levels.sfx]);
 
   // Volume / enable switches, and theme changes (old loop always stops first).
   useEffect(() => {

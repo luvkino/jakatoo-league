@@ -9,9 +9,11 @@ import { LeagueProvider } from "@/components/LeagueProvider";
 import { SettingsProvider, THEME_BOOT_SCRIPT } from "@/components/Settings";
 import { PlayerPrefsProvider, PREFS_BOOT_SCRIPT } from "@/components/prefs/PlayerPrefsProvider";
 import { AudioManager } from "@/components/prefs/AudioManager";
+import { ContrastDriver } from "@/components/prefs/ContrastDriver";
 import { ShakeDriver } from "@/components/prefs/ScreenShake";
 import Shell from "@/components/Shell";
 import { WorldEnvironment } from "@/components/themes/WorldEnvironment";
+import { CasinoAccessProvider } from "@/components/casino/CasinoAccessProvider";
 
 export const metadata: Metadata = {
   title: "JACKAROO LEAGUE — 8-BIT EDITION",
@@ -38,14 +40,17 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           <PlayerPrefsProvider>
             <ShakeDriver />
             <AudioManager />
-            <LeagueProvider>
-              <ChaosProvider>
-                <EasterEggProvider>
-                  <WorldEnvironment />
-                  <Shell>{children}</Shell>
-                </EasterEggProvider>
-              </ChaosProvider>
-            </LeagueProvider>
+            <ContrastDriver />
+            <CasinoAccessProvider>
+              <LeagueProvider>
+                <ChaosProvider>
+                  <EasterEggProvider>
+                    <WorldEnvironment />
+                    <Shell>{children}</Shell>
+                  </EasterEggProvider>
+                </ChaosProvider>
+              </LeagueProvider>
+            </CasinoAccessProvider>
           </PlayerPrefsProvider>
         </SettingsProvider>
       </body>

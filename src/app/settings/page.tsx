@@ -11,6 +11,7 @@ import { ShakeSettings } from "@/components/prefs/ShakeSettings";
 import { WorldThemePicker } from "@/components/themes/WorldThemePicker";
 import { BackgroundSettings } from "@/components/themes/BackgroundSettings";
 import { CasinoSettingsSection } from "@/components/casino/CasinoSettingsSection";
+import { useCasinoAccess } from "@/components/casino/CasinoAccessProvider";
 import { usePlayerPrefs } from "@/components/prefs/PlayerPrefsProvider";
 
 const THEMES: [Appearance["theme"], string][] = [
@@ -123,6 +124,7 @@ export default function SettingsPage() {
   const { a, set, reset } = useAppearance();
   const { set: setPrefs } = usePlayerPrefs();
   const { triggerEvent, triggerExplosion, triggerCelebration, nextTrash, sfx } = useChaos();
+  const { authorized } = useCasinoAccess();
 
   function toggleChaos(val: boolean) {
     unlockAudio();
@@ -198,12 +200,14 @@ export default function SettingsPage() {
       </section>
 
       {/* 5 — Blackjack */}
-      <section className="card stack">
-        <SectionTitle pixelIcon="cards" extra={<span className="chip chip-accent !text-[10px]">كازينو مستقل</span>}>
-          ٥ · إعدادات البلاك جاك
-        </SectionTitle>
-        <CasinoSettingsSection />
-      </section>
+      {authorized && (
+        <section className="card stack">
+          <SectionTitle pixelIcon="cards" extra={<span className="chip chip-accent !text-[10px]">كازينو مستقل</span>}>
+            ٥ · إعدادات البلاك جاك
+          </SectionTitle>
+          <CasinoSettingsSection />
+        </section>
+      )}
 
       {/* Part 3, 6, 8, 9: Chaos Mode, Trash Talk, Sound Effects, Animation Intensity */}
       <section className="stack">
