@@ -270,13 +270,24 @@ export interface ResolvedTokens {
 
 /**
  * Target contrast for text painted on top of a solid accent background
- * (e. `btn-primary` / the draw-page selected-player button). 4.5 is the WCAG
- * AA floor; 4.9 gives a comfortable, clearly-readable margin. It is the best
- * target achievable for every accent: the weakest (the balatro world's
- * signature red) tops out at 4.97:1 with black text, so 4.9 is the highest
- * floor that holds across all theme × accent combinations.
+ * (`.btn-primary`, `.btn-selected`, the Shell nav active link — every
+ * primary/selected control in the app).
+ *
+ * Bug 1 (dark text on dark backgrounds, still unfixed after PR #7) root cause:
+ * the previous 4.5/4.9 floor let `ensureContrast` return a *marginal* mid-dark
+ * label. For the default purple accent, `#150b36` on `#a855f7` measured only
+ * 4.68:1 — dark navy on medium purple, the "very dark text, nearly
+ * unreadable" the user reported. A 4.5 floor is met, so `ensureContrast` left
+ * the label untouched instead of pushing it to a readable extreme.
+ *
+ * 6.0 (WCAG AAA) forces the label toward the high-contrast extreme: accents
+ * that can reach it keep a themed dark label at 6.0–14:1, while the two that
+ * cannot (purple caps at 5.31:1, the balatro world's signature red at 4.97:1
+ * with black — no colour beats those) fall back to the extreme (black), which
+ * is the maximum contrast achievable for them. The label is therefore the
+ * most readable colour possible for every accent, not a marginal one.
  */
-export const ACCENT_FG_STRONG = 4.9;
+export const ACCENT_FG_STRONG = 6.0;
 
 /**
  * Surface used by `av-choice[aria-checked="true"]` (and the accent-tinted
@@ -290,12 +301,14 @@ export const ACCENT_TEXT_SURFACE_MIX = 0.22;
 /**
  * Resolve the full effective token set for a theme (or world) × accent.
  *
- * The returned text colours are guaranteed (by construction) to meet 4.5:1
- * against the surfaces they are actually painted on:
- *  - `fg` / `muted`        → `card`
- *  - `accentFg`            → solid `accent` (WCAG AA floor)
- *  - `accentFgStrong`      → solid `accent` (comfortable margin, for
- *                            selected-player / primary-button fills)
+ * The returned text colours are guaranteed (by construction) to meet their
+ * target contrast against the surfaces they are actually painted on:
+ *  - `fg` / `muted`        → `card` (4.5:1, WCAG AA)
+ *  - `accentFg`            → solid `accent` (ACCENT_FG_STRONG = 6.0:1, or the
+ *                            maximum achievable — black — where 6.0 is
+ *                            unreachable; Bug 1 fix for readable labels on
+ *                            primary/selected controls)
+ *  - `accentFgStrong`      → solid `accent` (same guarantee as `accentFg`)
  *  - `accentText`          → the accent-tinted surface
  *                            `color-mix(accent 22%, card2)` used by
  *                            `av-choice[aria-checked=true]` / `chip-accent`
@@ -314,9 +327,14 @@ export function resolveTokens(
 
   const fg = ensureContrast(pal.fg, pal.card, 4.5);
   const muted = ensureContrast(pal.muted, pal.card, 4.5);
-  const accentFg = ensureContrast(accent.accentFg, accent.accent, 4.5);
+  // Text on a solid accent fill (`.btn-primary`, `.btn-selected`, Shell nav
+  // active). Guaranteed at the ACCENT_FG_STRONG target — Bug 1 fix: a 4.5
+  // floor returned a marginal dark label (purple #150b36 @ 4.68:1); 6.0 pushes
+  // it to the readable extreme (black where 6.0 is unreachable).
+  const accentFg = ensureContrast(accent.accentFg, accent.accent, ACCENT_FG_STRONG);
   // Strong foreground for text on a solid accent fill (selected-player
-  // buttons). Guaranteed at a comfortable margin above the AA floor.
+  // buttons). Same guarantee as accentFg — both must be maximally readable on
+  // the solid accent surface.
   const accentFgStrong = ensureContrast(accent.accentFg, accent.accent, ACCENT_FG_STRONG);
   // accent-text sits on accent-tinted surfaces: `av-choice[aria-checked=true]`
   // paints it on `color-mix(accent 22%, card2)`, and `chip-accent` on

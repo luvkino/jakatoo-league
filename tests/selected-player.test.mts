@@ -80,14 +80,26 @@ test(".btn-selected uses the strong foreground token in globals.css", () => {
   assert.match(rule![0], /var\(--accent\)/);
 });
 
+// Bug 1 fix: solid-accent text is pushed to the ACCENT_FG_STRONG (6.0) target.
+// Two accents cannot reach 6.0 with ANY colour — purple caps at 5.31:1 and the
+// balatro world's signature red at 4.97:1 with black — so the guarantee is
+// "meets the target, or the maximum achievable contrast (the better of black
+// and white) where the target is unreachable." The label must never be a
+// marginal mid-dark colour (the old #150b36 @ 4.68:1 bug).
+const maxAchievable = (accent: string) =>
+  Math.max(contrastRatio("#000000", accent), contrastRatio("#ffffff", accent));
+const solidAccentFloor = (accent: string) =>
+  Math.min(ACCENT_FG_STRONG, maxAchievable(accent));
+
 test("selected-player foreground meets the strong target on solid accent for every theme × accent", () => {
   for (const theme of Object.keys(THEME_PALETTES)) {
     for (const accent of ACCENTS) {
       const t = resolveTokens(theme, accent.id);
       const ratio = contrastRatio(t.accentFgStrong, t.accent);
+      const floor = solidAccentFloor(t.accent);
       assert.ok(
-        ratio >= ACCENT_FG_STRONG,
-        `${theme}/${accent.id}: accentFgStrong ${t.accentFgStrong} on accent ${t.accent} = ${ratio.toFixed(2)} < ${ACCENT_FG_STRONG}`,
+        ratio >= floor,
+        `${theme}/${accent.id}: accentFgStrong ${t.accentFgStrong} on accent ${t.accent} = ${ratio.toFixed(2)} < floor ${floor.toFixed(2)}`,
       );
     }
   }
@@ -97,11 +109,24 @@ test("selected-player foreground meets the strong target on world signature acce
   for (const world of Object.keys(WORLD_PALETTES)) {
     const t = resolveTokens(world, "theme");
     const ratio = contrastRatio(t.accentFgStrong, t.accent);
+    const floor = solidAccentFloor(t.accent);
     assert.ok(
-      ratio >= ACCENT_FG_STRONG,
-      `${world}: accentFgStrong ${t.accentFgStrong} on accent ${t.accent} = ${ratio.toFixed(2)} < ${ACCENT_FG_STRONG}`,
+      ratio >= floor,
+      `${world}: accentFgStrong ${t.accentFgStrong} on accent ${t.accent} = ${ratio.toFixed(2)} < floor ${floor.toFixed(2)}`,
     );
   }
+});
+
+test("Bug 1 regression: default purple solid-accent label is the readable extreme, not the marginal #150b36", () => {
+  const t = resolveTokens("dark", "theme");
+  const ratio = contrastRatio(t.accentFgStrong, t.accent);
+  // The old bug: #150b36 on #a855f7 = 4.68:1 (dark navy on medium purple).
+  // The fix pushes it to the maximum achievable (black, 5.31:1).
+  assert.ok(
+    ratio >= maxAchievable(t.accent) - 0.01,
+    `default purple label ${t.accentFgStrong} = ${ratio.toFixed(2)} must be the max-achievable extreme (${maxAchievable(t.accent).toFixed(2)})`,
+  );
+  assert.notEqual(t.accentFgStrong, "#150b36");
 });
 
 /* ----------------------------- accent-text on the real tinted surfaces */
