@@ -8,6 +8,7 @@ import { usePlayerPrefs } from "./PlayerPrefsProvider";
 import { TRACKS } from "@/lib/audio/tracks";
 import { previewTheme, setMusicTheme } from "@/lib/audio/engine";
 import { WORLD_THEME_MAP, WORLD_THEMES, type WorldTheme } from "@/lib/worldThemes";
+import { toggleGlobalMute } from "@/lib/prefs";
 import { audioStatus, AUDIO_INTEGRATION_NOTE } from "@/lib/audio/sources";
 
 function Slider({
@@ -117,7 +118,8 @@ export function AudioSettings() {
           type="button"
           className={`btn btn-sm ${muted ? "btn-primary" : ""}`}
           onClick={() => {
-            set({ masterVolume: muted ? 80 : 0 });
+            const next = toggleGlobalMute(prefs);
+            set({ masterVolume: next.masterVolume, masterBeforeMute: next.masterBeforeMute });
             sfx("click");
           }}
         >

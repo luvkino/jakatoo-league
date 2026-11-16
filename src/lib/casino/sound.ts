@@ -26,6 +26,8 @@ export type CasinoSfx =
 let ctx: AudioContext | null = null;
 let enabled = true;
 let volume = 0.7;
+/** Global mute driven by the central audio manager (master volume = 0). */
+let globalMuted = false;
 const lastPlayed = new Map<CasinoSfx, number>();
 
 const THROTTLE_MS: Partial<Record<CasinoSfx, number>> = {
@@ -38,6 +40,11 @@ const THROTTLE_MS: Partial<Record<CasinoSfx, number>> = {
 
 export function setCasinoSoundEnabled(on: boolean) {
   enabled = on;
+}
+
+/** Central global mute — silences the casino bus too (master volume = 0). */
+export function setCasinoGlobalMuted(muted: boolean) {
+  globalMuted = !!muted;
 }
 
 export function setCasinoVolume(v: number) {
@@ -113,7 +120,7 @@ function noise(ac: AudioContext, at: number, dur: number, gain: number, highpass
 
 /** Plays one casino sound effect. Safe to call from any event handler. */
 export function playCasinoSfx(kind: CasinoSfx) {
-  if (!enabled || volume <= 0) return;
+  if (!enabled || globalMuted || volume <= 0) return;
   const ac = getCtx();
   if (!ac) return;
   const now = performance.now();

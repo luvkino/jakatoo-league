@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { useChaos } from "@/components/ChaosEngine";
+import { useCasinoAccess } from "@/components/casino/CasinoAccessProvider";
 import { useLeague } from "@/components/LeagueProvider";
 import { PixelIcon, type PixelIconName } from "@/components/PixelArt";
 import { useAppearance } from "@/components/Settings";
@@ -11,6 +12,7 @@ import { Modal } from "@/components/ui";
 import { MatchResultSequence } from "@/components/match/MatchResultSequence";
 import { usePlayerPrefs } from "@/components/prefs/PlayerPrefsProvider";
 import { unlockAudio } from "@/lib/sound";
+import { isMuted, toggleGlobalMute } from "@/lib/prefs";
 import { pickRandomWorld } from "@/lib/worldThemes";
 
 const NAV: { href: string; label: string; icon: PixelIconName }[] = [
@@ -95,15 +97,39 @@ export default function Shell({ children }: { children: ReactNode }) {
   const { currentTrash, nextTrash } = useChaos();
   const { prefs, set: setPrefs } = usePlayerPrefs();
   const { pendingResult, dismissPendingResult, nameOf } = useLeague();
+  const casino = useCasinoAccess();
   const [more, setMore] = useState(false);
   const isActive = (href: string) => (href === "/" ? path === "/" : path.startsWith(href));
 
+  // The Casino entry is hidden from every nav surface until the server
+  // confirms authorization. There is intentionally NO visible unlock button.
+  const navItems = casino.authorized ? NAV : NAV.filter((n) => n.href !== "/casino");
+
+  // Hidden programmatic trigger: opens the (invisible) unlock modal. It is not
+  // visible to users; the Casino unlock is intentionally an undocumented entry.
+  useEffect(() => {
+    if (casino.authorized) return; // nothing to unlock once authorized
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.altKey || e.metaKey) && (e.key === "k" || e.key === "K")) {
+        e.preventDefault();
+        e.stopPropagation();
+        casino.openUnlock();
+      }
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, [casino, casino.authorized]);
+
   function toggleSoundQuick() {
     unlockAudio();
-    const next = !a.sound;
-    set({ sound: next });
-    setPrefs({ sfxEnabled: next }); // keeps Settings → Audio in sync
+    // Central global mute: zeroes the master bus so music, SFX, Easter-Egg
+    // SFX, Casino SFX and UI sounds all silence at once; the previous level is
+    // restored on unmute. Individual volume controls are untouched.
+    const next = toggleGlobalMute(prefs);
+    setPrefs({ masterVolume: next.masterVolume, masterBeforeMute: next.masterBeforeMute });
   }
+
+  const soundMuted = isMuted(prefs);
 
   return (
     <div className="jl-shell mx-auto flex min-h-dvh w-full max-w-6xl flex-col px-3 pb-24 sm:px-5 lg:pb-8">
@@ -152,10 +178,10 @@ export default function Shell({ children }: { children: ReactNode }) {
               type="button"
               onClick={toggleSoundQuick}
               className="btn btn-sm !min-h-[38px] !px-2"
-              title={a.sound ? "إيقاف الأصوات (8-Bit)" : "تشغيل الأصوات (8-Bit)"}
-              aria-label={a.sound ? "إيقاف المؤثرات الصوتية" : "تشغيل المؤثرات الصوتية"}
+              title={soundMuted ? "إلغاء كتم الأصوات (8-Bit)" : "كتم الأصوات (8-Bit)"}
+              aria-label={soundMuted ? "إلغاء كتم الصوت" : "كتم الصوت"}
             >
-              <PixelIcon name={a.sound ? "soundOn" : "soundOff"} size={18} />
+              <PixelIcon name={soundMuted ? "soundOff" : "soundOn"} size={18} />
             </button>
 
             <select
@@ -185,11 +211,30 @@ export default function Shell({ children }: { children: ReactNode }) {
             ) : (
               <LoginButton label="دخول" className="btn btn-sm btn-primary !min-h-[38px]" />
             )}
+
+            {/*
+              Hidden programmatic trigger for the Casino unlock modal.
+              Intentionally NOT visible (opacity-0 / zero size) — the Casino has
+              no visible unlock button. Keyboard owners can also open it with
+              Alt/Cmd + K. This is presentation only; the server gate is the
+              real protection.
+            */}
+            {!casino.authorized && casino.status !== "loading" && (
+              <button
+                type="button"
+                data-testid="casino-unlock-trigger"
+                data-casino-unlock
+                aria-hidden="true"
+                tabIndex={0}
+                onClick={casino.openUnlock}
+                className="pointer-events-auto absolute -z-10 size-0 overflow-hidden opacity-0"
+              />
+            )}
           </div>
         </div>
 
         <nav className="mt-2 hidden gap-1.5 overflow-x-auto pb-0.5 lg:flex" aria-label="التنقل">
-          {NAV.map((n) => (
+          {navItems.map((n) => (
             <Link
               key={n.href}
               href={n.href}
@@ -258,7 +303,7 @@ export default function Shell({ children }: { children: ReactNode }) {
         }}
         aria-label="التنقل السريع"
       >
-        {NAV.filter((n) => BOTTOM.includes(n.href)).map((n) => (
+        {navItems.filter((n) => BOTTOM.includes(n.href)).map((n) => (
           <Link
             key={n.href}
             href={n.href}
@@ -282,7 +327,7 @@ export default function Shell({ children }: { children: ReactNode }) {
       {more && (
         <Modal title="قائمة الأركيد" onClose={() => setMore(false)}>
           <div className="grid grid-cols-2 gap-2">
-            {NAV.map((n) => (
+            {navItems.map((n) => (
               <Link
                 key={n.href}
                 href={n.href}

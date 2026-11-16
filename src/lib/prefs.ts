@@ -33,7 +33,9 @@ export interface PlayerPrefs {
   /** League player profile this browser belongs to (used for DB sync). */
   profilePlayerId: string | null;
   /** Audio */
-  masterVolume: number; // 0..100
+  masterVolume: number; // 0..100 (0 = global mute)
+  /** Master volume remembered before the global mute was engaged (for restore). */
+  masterBeforeMute: number; // 0..100
   musicVolume: number; // 0..100
   sfxVolume: number; // 0..100
   musicEnabled: boolean;
@@ -60,6 +62,7 @@ export const DEFAULT_PREFS: PlayerPrefs = {
   theme: "classic",
   profilePlayerId: null,
   masterVolume: 80,
+  masterBeforeMute: 80,
   musicVolume: 40,
   sfxVolume: 70,
   musicEnabled: true,
@@ -112,6 +115,7 @@ export function normalizePrefs(raw: unknown): PlayerPrefs {
     theme: normalizeWorldTheme(r.theme),
     profilePlayerId: playerId(r.profilePlayerId),
     masterVolume: clampPct(r.masterVolume, DEFAULT_PREFS.masterVolume),
+    masterBeforeMute: clampPct(r.masterBeforeMute, DEFAULT_PREFS.masterBeforeMute),
     musicVolume: clampPct(r.musicVolume, DEFAULT_PREFS.musicVolume),
     sfxVolume: clampPct(r.sfxVolume, DEFAULT_PREFS.sfxVolume),
     musicEnabled: bool(r.musicEnabled, DEFAULT_PREFS.musicEnabled),
@@ -224,6 +228,26 @@ export function audioLevels(p: PlayerPrefs, reducedMotion = false) {
 }
 
 export const isMuted = (p: PlayerPrefs): boolean => p.masterVolume === 0;
+
+/**
+ * Central global-mute toggle.
+ *
+ * Muting zeroes the master bus — which silences music, league/general SFX,
+ * Easter-Egg SFX, Casino SFX and UI sounds at once (the AudioManager applies
+ * that single master value to every audio bus). The previous master level is
+ * remembered so unmuting restores it exactly, without touching the individual
+ * volume controls.
+ */
+export function toggleGlobalMute(p: PlayerPrefs): { masterVolume: number; masterBeforeMute: number } {
+  if (isMuted(p)) {
+    // Unmute: restore the remembered level (never silent).
+    const restore = p.masterBeforeMute > 0 ? p.masterBeforeMute : DEFAULT_PREFS.masterVolume;
+    return { masterVolume: restore, masterBeforeMute: restore };
+  }
+  // Mute: remember the current level, then go silent.
+  const remembered = p.masterVolume > 0 ? p.masterVolume : DEFAULT_PREFS.masterVolume;
+  return { masterVolume: 0, masterBeforeMute: remembered };
+}
 
 /** Human-readable summary for the theme cards / status chips. */
 export const THEME_PREVIEW_NOTE =

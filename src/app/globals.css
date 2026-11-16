@@ -78,6 +78,19 @@
 [data-accent="violet"] { --accent: #a78bfa; --accent-fg: #150b36; }
 [data-accent="orange"] { --accent: #fb923c; --accent-fg: #2b1200; }
 
+/* Light theme: the generic accent-text mix (78% accent + near-black fg) is too
+   light on a light card and fails 4.5:1. Use each accent's dark, hue-preserving
+   foreground so contrast is guaranteed while each accent keeps its identity.
+   Scoped to the base light theme (a multiverse world overrides the card to a
+   dark surface, where the generic mix is already high-contrast). */
+[data-theme="light"][data-world="classic"][data-accent="theme"] { --accent-text: #150b36; }
+[data-theme="light"][data-world="classic"][data-accent="gold"] { --accent-text: #1c1200; }
+[data-theme="light"][data-world="classic"][data-accent="emerald"] { --accent-text: #03210f; }
+[data-theme="light"][data-world="classic"][data-accent="sky"] { --accent-text: #021a26; }
+[data-theme="light"][data-world="classic"][data-accent="rose"] { --accent-text: #2b0610; }
+[data-theme="light"][data-world="classic"][data-accent="violet"] { --accent-text: #150b36; }
+[data-theme="light"][data-world="classic"][data-accent="orange"] { --accent-text: #2b1200; }
+
 :root {
   --accent-text: color-mix(in srgb, var(--accent) 78%, var(--fg));
   --r: 0px;
@@ -409,6 +422,33 @@ button:focus-visible {
 }
 
 .tnum { font-variant-numeric: tabular-nums; }
+
+/* ============================================================ */
+/* ---- UI LAYERING CONTRACT ------------------------------------ */
+/* A single, ordered stacking ladder. Components MUST use these  */
+/* tokens (or the documented numeric equivalents) instead of    */
+/* inventing ad-hoc z-index values, so layers never fight.      */
+/*   L0 backgrounds   --z-bg (world environment, casino backdrop) */
+/*   L1 shell         --z-shell (.jl-shell, page content)        */
+/*   L2 sticky nav    --z-nav  (header, mobile dock, fixed UI)  */
+/*   L3 dropdowns     --z-dropdown (menus, popovers, selects)    */
+/*   L4 modals        --z-modal (Modal, match sequences)         */
+/*   L5 toasts        --z-toast (live toasts)                    */
+/*   L6 overlays      --z-overlay (chaos, egg effects)           */
+/* Stacking contexts are established at the source (.jl-shell    */
+/* uses isolation:isolate) so fixed layers stay within their    */
+/* contract instead of escaping to the root.                    */
+/* ============================================================ */
+:root {
+  --z-bg: 0;
+  --z-shell: 1;
+  --z-nav: 30;
+  --z-dropdown: 40;
+  --z-modal: 50;
+  --z-toast: 60;
+  --z-overlay: 70;
+}
+
 .lb-row {
   display: grid;
   grid-template-columns: 2rem minmax(0, 1fr) 2.3rem 3.2rem 2.6rem 2rem 2rem;
