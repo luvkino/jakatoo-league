@@ -22,10 +22,11 @@ const NAV: { href: string; label: string; icon: PixelIconName }[] = [
   { href: "/seasons", label: "المواسم", icon: "calendar" },
   { href: "/hall-of-fame", label: "قاعة المشاهير", icon: "star" },
   { href: "/draw", label: "دق الولد", icon: "dice" },
+  { href: "/casino", label: "الكازينو", icon: "cards" },
   { href: "/settings", label: "الإعدادات", icon: "palette" },
   { href: "/admin", label: "الإدارة", icon: "shield" },
 ];
-const BOTTOM = ["/", "/players", "/matches", "/draw"];
+const BOTTOM = ["/", "/players", "/matches", "/casino"];
 
 export function LoginButton({ label = "دخول المشرف", className = "btn btn-primary" }: { label?: string; className?: string }) {
   const { login } = useLeague();
@@ -105,8 +106,8 @@ export default function Shell({ children }: { children: ReactNode }) {
   }
 
   return (
-    <div className="relative mx-auto flex min-h-dvh w-full max-w-6xl flex-col px-3 pb-24 sm:px-5 lg:pb-8">
-      <header className="shake-target sticky top-0 z-30 -mx-3 border-b-2 border-line bg-bg/95 px-3 py-2 backdrop-blur sm:-mx-5 sm:px-5">
+    <div className="jl-shell mx-auto flex min-h-dvh w-full max-w-6xl flex-col px-3 pb-24 sm:px-5 lg:pb-8">
+      <header className="jl-shake sticky top-0 z-30 -mx-3 border-b-2 border-line bg-bg/95 px-3 py-2 backdrop-blur sm:-mx-5 sm:px-5">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <Link
             href="/"
@@ -245,11 +246,11 @@ export default function Shell({ children }: { children: ReactNode }) {
         </div>
       )}
 
-      <main className="shake-target relative z-[1] mt-4 flex-1">{children}</main>
+      <main className="jl-shake relative z-[1] mt-4 flex-1">{children}</main>
 
       {/* Mobile bottom arcade dock */}
       <nav
-        className="shake-target fixed bottom-0 z-30 grid grid-cols-5 border-t-2 border-line bg-card/95 backdrop-blur lg:hidden"
+        className="fixed bottom-0 z-30 grid grid-cols-5 border-t-2 border-line bg-card/95 backdrop-blur lg:hidden"
         style={{
           // mirror the shell's horizontal padding on both sides so the tiny
           // shake translation can never reveal a gap at the screen edge

@@ -26,6 +26,7 @@ import {
 import {
   DEFAULT_PREFS,
   normalizePrefs,
+  bgActive,
   shakeActive,
   shakeAmplitude,
   toServerPrefs,
@@ -114,11 +115,19 @@ const PrefsCtx = createContext<Ctx>({
 export const PREFS_BOOT_SCRIPT = `(function(){try{
 var p=JSON.parse(localStorage.getItem("${KEY}")||"{}");
 var e=document.documentElement;
-e.dataset.world=p.theme||"classic";
-e.dataset.shake=(p.shakeEnabled===false||!p.shakeIntensity)? "off":"on";
-var lvl=(typeof p.shakeIntensity==="number"?p.shakeIntensity:35)/100;
-e.style.setProperty("--shake-amp", (lvl*6.5).toFixed(2)+"px");
-e.dataset.shakeint=String(Math.round(lvl*100));
+var theme=p.theme||"classic";
+e.dataset.world=theme;
+var si=(typeof p.shakeIntensity==="number"?p.shakeIntensity:15);
+var on=p.shakeEnabled===true && si>0;
+var t=Math.max(0,Math.min(100,si))/100;
+var amp=on? (5*Math.pow(t,1.15)) : 0;
+e.dataset.shake=amp>0? "on":"off";
+e.dataset.shakeint=String(on?Math.round(si):0);
+e.style.setProperty("--shake-amp", amp.toFixed(2)+"px");
+var bg=(p.bgAnimations!==false);
+var lvl=(typeof p.bgIntensity==="number"?p.bgIntensity:2);
+e.dataset.bg=(bg && lvl>0)?"on":"off";
+e.dataset.bgLevel=String(lvl);
 }catch(x){}})();`;
 
 export function PlayerPrefsProvider({ children }: { children: ReactNode }) {
@@ -282,7 +291,8 @@ export function PlayerPrefsProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  // Theme + shake are applied to <html> so every page and overlay follows.
+  // Theme, shake and background animation state are applied to <html> so every
+  // page and overlay follows the same world.
   useEffect(() => {
     const el = document.documentElement;
     el.dataset.world = prefs.theme;
@@ -290,6 +300,13 @@ export function PlayerPrefsProvider({ children }: { children: ReactNode }) {
     el.dataset.shake = on ? "on" : "off";
     el.dataset.shakeint = String(on ? prefs.shakeIntensity : 0);
     el.style.setProperty("--shake-amp", `${on ? shakeAmplitude(prefs.shakeIntensity) : 0}px`);
+    const bg = bgActive(prefs, reducedMotion);
+    el.dataset.bg = bg ? "on" : "off";
+    el.dataset.bgLevel = String(prefs.bgIntensity);
+    // Smooth cross-fade between worlds, then remove the marker.
+    el.classList.add("world-fading");
+    const t = window.setTimeout(() => el.classList.remove("world-fading"), 560);
+    return () => window.clearTimeout(t);
   }, [prefs, reducedMotion]);
 
   // Everyone's saved avatars (single lightweight request, refreshed after saves).

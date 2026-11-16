@@ -49,9 +49,13 @@ create table if not exists player_preferences (
   sfx_volume integer not null default 70,
   music_enabled boolean not null default true,
   sfx_enabled boolean not null default false,
-  shake_enabled boolean not null default true,
-  shake_intensity integer not null default 35,
+  shake_enabled boolean not null default false,
+  shake_intensity integer not null default 15,
+  bg_animations boolean not null default true,
+  bg_intensity integer not null default 2,
   match_animations boolean not null default true,
+  casino_sfx_enabled boolean not null default true,
+  casino_table text not null default 'classic',
   updated_at timestamptz not null default now(),
   constraint prefs_volumes check (
     master_volume between 0 and 100 and music_volume between 0 and 100 and sfx_volume between 0 and 100
@@ -65,9 +69,13 @@ alter table player_preferences add column if not exists music_volume integer not
 alter table player_preferences add column if not exists sfx_volume integer not null default 70;
 alter table player_preferences add column if not exists music_enabled boolean not null default true;
 alter table player_preferences add column if not exists sfx_enabled boolean not null default false;
-alter table player_preferences add column if not exists shake_enabled boolean not null default true;
-alter table player_preferences add column if not exists shake_intensity integer not null default 35;
+alter table player_preferences add column if not exists shake_enabled boolean not null default false;
+alter table player_preferences add column if not exists shake_intensity integer not null default 15;
+alter table player_preferences add column if not exists bg_animations boolean not null default true;
+alter table player_preferences add column if not exists bg_intensity integer not null default 2;
 alter table player_preferences add column if not exists match_animations boolean not null default true;
+alter table player_preferences add column if not exists casino_sfx_enabled boolean not null default true;
+alter table player_preferences add column if not exists casino_table text not null default 'classic';
 alter table player_preferences add column if not exists updated_at timestamptz not null default now();
 create unique index if not exists player_preferences_player_idx on player_preferences(player_id);
 -- Idempotent for pre-existing preference tables (no plpgsql / DO blocks needed).
@@ -77,6 +85,12 @@ alter table player_preferences add constraint prefs_volumes check (
 );
 alter table player_preferences drop constraint if exists prefs_shake;
 alter table player_preferences add constraint prefs_shake check (shake_intensity between 0 and 100);
+alter table player_preferences drop constraint if exists prefs_bg;
+alter table player_preferences add constraint prefs_bg check (bg_intensity between 0 and 3);
+alter table player_preferences drop constraint if exists prefs_casino_table;
+alter table player_preferences add constraint prefs_casino_table check (
+  casino_table in ('classic', 'vegas', 'atlantic', 'european', 'highroller', 'custom')
+);
 create table if not exists audit_log (
   id serial primary key,
   action text not null,

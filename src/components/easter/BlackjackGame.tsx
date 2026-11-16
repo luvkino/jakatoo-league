@@ -7,6 +7,7 @@
 // ============================================================================
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { EggModal } from "./EggModal";
 import { EggSprite, PlayingCardView, ChipSprite } from "./eggArt";
 import { getAch, type EggAchId } from "./eggData";
@@ -359,6 +360,16 @@ export function BlackjackGame({
             🔄 جولة جديدة
           </button>
         )}
+
+        <div className="border-2 border-accent/50 bg-accent/10 p-2.5 text-center">
+          <p className="mb-1.5 text-[11px] font-bold text-accent-text">🃏 الكازينو الكامل متاح الآن</p>
+          <p className="mb-2 text-[10px] leading-relaxed text-muted">
+            هذه طاولة سريعة (التقسيم والمضاعفة والاستسلام والتأمين والمراهنات الجانبية لها طاولتها الكاملة).
+          </p>
+          <Link href="/casino" className="btn btn-sm btn-primary" onClick={onClose}>
+            فتح JACKAROO CASINO
+          </Link>
+        </div>
 
         <p className="text-center text-[11px] leading-relaxed text-muted">
           🎮 لعبة سرية للترفيه فقط — الشيبس عملة افتراضية بلا أي قيمة حقيقية، ولا توجد مدفوعات

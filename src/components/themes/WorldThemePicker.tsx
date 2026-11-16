@@ -14,28 +14,68 @@ import { WORLD_THEMES, WORLD_THEME_MAP, pickRandomWorld, type WorldTheme } from 
 import { AvatarSprite } from "@/components/avatar/AvatarSprite";
 import { DEFAULT_AVATAR } from "@/lib/avatar";
 import { previewTheme, setMusicTheme } from "@/lib/audio/engine";
+import { SCENES } from "@/components/themes/worldScenes";
+import { audioStatus } from "@/lib/audio/sources";
 
-function WorldPreview({ theme }: { theme: WorldTheme }) {
+/**
+ * Live environment preview. This renders the *same* scene component the real
+ * page uses (scaled down inside a fixed-ratio frame), so what the player sees
+ * here is exactly what the whole site becomes after pressing «تطبيق».
+ */
+function WorldPreview({ theme, intensity = 2 }: { theme: WorldTheme; intensity?: number }) {
+  const Scene = SCENES[theme] ?? SCENES.classic;
   const meta = WORLD_THEME_MAP[theme];
   const [s0, s1, s2] = meta.swatch;
+  const frameRef = useRef<HTMLDivElement | null>(null);
+  const [scale, setScale] = useState(0.2);
+
+  // The stage is a full viewport scaled down, so the preview is a faithful
+  // miniature of the real environment (identical vh/vw positions).
+  useEffect(() => {
+    const el = frameRef.current;
+    if (!el) return;
+    const measure = () => {
+      const w = el.getBoundingClientRect().width;
+      const vw = typeof window !== "undefined" ? window.innerWidth : 1280;
+      if (w > 0 && vw > 0) setScale(w / vw);
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    window.addEventListener("resize", measure);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", measure);
+    };
+  }, []);
+
   return (
     <div
-      className="relative overflow-hidden border-2"
+      ref={frameRef}
+      className="wenv-preview relative overflow-hidden border-2"
       style={{ borderColor: s2, background: s0 }}
-      aria-hidden
+      data-bg="on"
+      data-bg-level={intensity}
+      aria-label={`معاينة بيئة ${meta.label}`}
     >
-      <div className="p-2.5" style={{ background: `linear-gradient(160deg, ${s1}, ${s0})` }}>
+      <div className="wenv-preview-scene" aria-hidden>
+        <div
+          className="wenv-preview-stage"
+          data-world-scene={theme}
+          data-bg="on"
+          data-bg-level={intensity}
+          style={{ ["--preview-scale" as string]: scale.toFixed(4) }}
+        >
+          <div className="wenv-palette" data-palette={theme} />
+          <Scene />
+        </div>
+      </div>
+      <div className="relative p-2.5">
         <div className="mb-2 flex items-center justify-between gap-2">
-          <span
-            className="font-pixel-en text-[9px] tracking-widest"
-            style={{ color: s2 }}
-          >
+          <span className="font-pixel-en text-[9px] tracking-widest" style={{ color: s2, textShadow: "0 1px 2px #000" }}>
             JACKAROO LEAGUE
           </span>
-          <span
-            className="border px-1 py-0.5 font-pixel-en text-[8px]"
-            style={{ borderColor: s2, color: s2 }}
-          >
+          <span className="border bg-black/40 px-1 py-0.5 font-pixel-en text-[8px]" style={{ borderColor: s2, color: s2 }}>
             8-BIT
           </span>
         </div>
@@ -43,16 +83,16 @@ function WorldPreview({ theme }: { theme: WorldTheme }) {
           {[0, 1].map((i) => (
             <div
               key={i}
-              className="flex items-center gap-2 border-2 px-2 py-1"
+              className="flex items-center gap-2 border-2 px-2 py-1 backdrop-blur-[1px]"
               style={{
                 borderColor: i === 0 ? s2 : `${s1}`,
-                background: i === 0 ? `color-mix(in srgb, ${s2} 18%, ${s0})` : s1,
+                background: i === 0 ? "rgba(0,0,0,0.55)" : "rgba(0,0,0,0.4)",
               }}
             >
               <span className="grid h-7 w-7 place-items-center border" style={{ borderColor: s2, background: s0 }}>
                 <AvatarSprite config={{ ...DEFAULT_AVATAR, outfit: i === 0 ? 2 : 5 }} size={22} />
               </span>
-              <span className="flex-1 text-[10px] font-bold" style={{ color: i === 0 ? s2 : "#fff" }}>
+              <span className="flex-1 text-[10px] font-bold text-white">
                 {i === 0 ? "المركز الأول" : "لاعب الدوري"}
               </span>
               <span
@@ -63,10 +103,6 @@ function WorldPreview({ theme }: { theme: WorldTheme }) {
               </span>
             </div>
           ))}
-        </div>
-        <div className="mt-2 flex gap-1">
-          <span className="h-3 flex-1 border-2" style={{ borderColor: s2, background: s2 }} />
-          <span className="h-3 flex-1 border-2" style={{ borderColor: s2 }} />
         </div>
       </div>
     </div>
@@ -159,7 +195,7 @@ export function WorldThemePicker() {
 
       {/* Preview before applying */}
       <div className="grid gap-3 border-2 border-line bg-card2/50 p-3 sm:grid-cols-[220px_minmax(0,1fr)]">
-        <WorldPreview theme={preview} />
+        <WorldPreview theme={preview} intensity={prefs.bgIntensity} />
         <div className="flex min-w-0 flex-col gap-2">
           <div className="flex flex-wrap items-center gap-2">
             <span className="chip chip-accent">معاينة</span>
@@ -168,7 +204,8 @@ export function WorldThemePicker() {
           </div>
           <p className="text-xs text-muted">{meta.desc}</p>
           <p className="text-[11px] text-muted">
-            🎵 موسيقى الثيم: <b className="text-fg">{meta.track}</b> · {meta.bpm} BPM · مقطوعة أصلية 8-بت
+            🎵 موسيقى الثيم: <b className="text-fg">{meta.track}</b> · {meta.bpm} BPM ·{" "}
+            {audioStatus(preview).hasLicensedFile ? "ملف مرخّص مُحوَّل إلى 8-بت" : "مقطوعة أصلية 8-بت للدوري"}
           </p>
           <div className="mt-auto flex flex-wrap gap-2">
             <button type="button" className="btn btn-sm btn-primary" onClick={apply} disabled={isApplied || saving}>

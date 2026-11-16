@@ -59,6 +59,10 @@ const {
   normalizePrefs,
   shakeActive,
   shakeAmplitude,
+  shakeRotation,
+  shakeDuration,
+  bgActive,
+  normalizeBgIntensity,
   toServerPrefs,
 } = await import("../src/lib/prefs.ts");
 const {
@@ -144,7 +148,10 @@ assert.equal(avatarsEqual(DEFAULT_AVATAR, { ...DEFAULT_AVATAR, eyes: 1 }), false
 ok("Randomize produces valid, reproducible avatars");
 
 /* ------------------------------------------------------------------- PREFS */
-assert.equal(DEFAULT_PREFS.shakeIntensity, 35, "default shake intensity is 35%");
+assert.equal(DEFAULT_PREFS.shakeIntensity, 15, "default shake intensity is 15%");
+assert.equal(DEFAULT_PREFS.shakeEnabled, false, "screen shake is OFF by default");
+assert.equal(DEFAULT_PREFS.bgAnimations, true, "living backgrounds are on by default");
+assert.equal(DEFAULT_PREFS.bgIntensity, 2, "background intensity defaults to normal");
 assert.equal(DEFAULT_PREFS.theme, "classic");
 assert.deepEqual(normalizePrefs(null), { ...DEFAULT_PREFS });
 const p = normalizePrefs({
@@ -172,18 +179,23 @@ assert.equal(p.avatar.skin, 3);
 assert.equal(normalizePrefs({ profilePlayerId: "not-a-uuid" }).profilePlayerId, null);
 ok("preference normalisation clamps volumes/shake and validates ids");
 
-// shake mapping: 0% is a complete OFF, 25/50/100 are subtle but increasing
-assert.equal(shakeAmplitude(0), 0);
-assert.ok(shakeAmplitude(25) > 0 && shakeAmplitude(25) < 2.5);
-assert.ok(shakeAmplitude(50) > shakeAmplitude(25));
-assert.ok(shakeAmplitude(100) <= 6.5, "max shake stays subtle (<=6.5px)");
+// shake mapping: 0% is a complete OFF; low intensities stay genuinely subtle
+assert.equal(shakeAmplitude(0), 0, "0% is absolutely no movement");
+assert.ok(shakeAmplitude(10) > 0 && shakeAmplitude(10) < 0.5, "10% is barely perceptible");
+assert.ok(shakeAmplitude(15) > shakeAmplitude(10) && shakeAmplitude(15) < 1);
+assert.ok(shakeAmplitude(35) > 1 && shakeAmplitude(35) < 2.2, "35% ≈ Balatro nudge");
+assert.ok(shakeAmplitude(100) <= 5, "max shake stays controlled (<=5px)");
 assert.equal(shakeAmplitude(-50), 0);
 assert.equal(shakeAmplitude(999), shakeAmplitude(100));
-assert.equal(shakeActive({ ...DEFAULT_PREFS, shakeIntensity: 0 }, false), false);
-assert.equal(shakeActive({ ...DEFAULT_PREFS, shakeEnabled: false }, false), false);
-assert.equal(shakeActive(DEFAULT_PREFS, true), false, "reduced motion always disables shake");
-assert.equal(shakeActive(DEFAULT_PREFS, false), true);
-ok("shake intensities 0/25/50/100 behave and honour reduced motion");
+const shakeOn = { ...DEFAULT_PREFS, shakeEnabled: true };
+assert.equal(shakeActive({ ...shakeOn, shakeIntensity: 0 }, false), false, "0% never shakes");
+assert.equal(shakeActive({ ...shakeOn, shakeIntensity: 0 }, false), false);
+assert.equal(shakeActive(DEFAULT_PREFS, false), false, "OFF by default");
+assert.equal(shakeActive(shakeOn, true), false, "reduced motion always disables shake");
+assert.equal(shakeActive(shakeOn, false), true);
+assert.equal(shakeDuration(35) > 0, true);
+assert.equal(shakeRotation(100) < shakeAmplitude(100), true);
+ok("shake intensities 0/10/15/35/100 behave and honour reduced motion");
 
 const levels = audioLevels(normalizePrefs({ masterVolume: 50, musicVolume: 40, sfxVolume: 80, sfxEnabled: true }));
 assert.equal(levels.master, 0.5);
@@ -193,9 +205,24 @@ assert.equal(audioLevels(normalizePrefs({ masterVolume: 0 })).music, 0);
 assert.equal(audioLevels(normalizePrefs({ musicEnabled: false })).music, 0);
 assert.equal(audioLevels(normalizePrefs({ sfxEnabled: false })).sfx, 0);
 assert.equal(isMuted(normalizePrefs({ masterVolume: 0 })), true);
+assert.equal(bgActive(DEFAULT_PREFS, false), true);
+assert.equal(bgActive({ ...DEFAULT_PREFS, bgAnimations: false }, false), false);
+assert.equal(bgActive({ ...DEFAULT_PREFS, bgIntensity: 0 }, false), false);
+assert.equal(bgActive(DEFAULT_PREFS, true), false, "reduced motion stops backgrounds too");
+assert.equal(normalizeBgIntensity(9), 3);
+assert.equal(normalizeBgIntensity(-4), 0);
+assert.equal(normalizeBgIntensity("nope"), 2);
+assert.equal(normalizePrefs({ bgIntensity: 3 }).bgIntensity, 3);
 ok("volume sliders compose master × channel and mute correctly");
 
 const server = toServerPrefs(normalizePrefs({ theme: "ocean", shakeIntensity: 10 }));
+assert.equal(server.casinoSfxEnabled, true, "casino sound is a saved preference");
+assert.equal(server.casinoTable, "classic", "selected casino table is a saved preference");
+assert.equal(
+  toServerPrefs(normalizePrefs({ casinoTable: "vegas" })).casinoTable,
+  "vegas",
+  "casino table round-trips through the server payload",
+);
 assert.equal(server.theme, "ocean");
 assert.equal(Object.prototype.hasOwnProperty.call(server, "profilePlayerId"), false);
 assert.equal(
