@@ -70,7 +70,15 @@
   color-scheme: dark;
 }
 
+/* Bug 1 fix (no-JS fallback): the default `theme` accent is purple (#a855f7).
+   Its solid-accent label is the maximum-contrast extreme — black — because
+   purple caps at 5.31:1 with black (6.0 is unreachable for any colour). The
+   previous #150b36 label measured only 4.68:1 (dark navy on medium purple),
+   the "very dark text, nearly unreadable" bug. The other accents keep their
+   hue-preserving dark labels, which already meet the 6.0 target. The
+   ContrastDriver applies the same resolved values at runtime. */
 :root,
+[data-accent="theme"] { --accent: #a855f7; --accent-fg: #000000; }
 [data-accent="gold"] { --accent: #fbbf24; --accent-fg: #1c1200; }
 [data-accent="emerald"] { --accent: #22c55e; --accent-fg: #03210f; }
 [data-accent="sky"] { --accent: #38bdf8; --accent-fg: #021a26; }
@@ -205,10 +213,12 @@ body {
 }
 /* Selected-player picker button (draw page). Same pixel-art primary look as
    .btn-primary, but the foreground uses --accent-fg-strong — a colour
-   guaranteed by the contrast resolver to sit clearly above the AA floor on the
-   solid accent fill for every theme × accent combination (the plain
-   --accent-fg could drop to ~4.7:1 on the default purple). Falls back to
-   --accent-fg when the driver hasn't run (no-JS). */
+   guaranteed by the contrast resolver to be the maximum-contrast label on the
+   solid accent fill for every theme × accent combination (Bug 1 fix: the old
+   4.5/4.9 floor left a marginal dark label — #150b36 @ 4.68:1 on the default
+   purple — that was nearly unreadable; the 6.0 target pushes it to the
+   readable extreme). Falls back to --accent-fg when the driver hasn't run
+   (no-JS). */
 .btn-selected {
   background: var(--accent);
   color: var(--accent-fg-strong, var(--accent-fg));
@@ -321,6 +331,12 @@ button:focus-visible {
   border-color: #fbbf24;
   background: linear-gradient(135deg, #2b1d04, var(--card));
   box-shadow: 0 0 0 2px #f43f5e, 5px 5px 0 #78350f;
+  /* Bug 1 fix: the gradient starts at a very dark brown (#2b1d04), but the
+     text uses --fg, which is dark in the light theme — dark-on-dark (≈1.2:1,
+     invisible). A pixel-art outline makes the text readable across the whole
+     gradient (both the dark start and the card end) without changing the
+     colour or the theme identity. */
+  text-shadow: 0 0 3px #000, 1px 1px 0 #000;
 }
 
 /* ---- Pixel Skeleton & Keyframe Animations ---- */
