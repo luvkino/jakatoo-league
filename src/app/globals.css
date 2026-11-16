@@ -91,8 +91,13 @@
 [data-theme="light"][data-world="classic"][data-accent="violet"] { --accent-text: #150b36; }
 [data-theme="light"][data-world="classic"][data-accent="orange"] { --accent-text: #2b1200; }
 
+/* No-JS fallback for --accent-text. The ContrastDriver is authoritative at
+   runtime and guarantees this colour against the accent-tinted surface
+   (color-mix(accent 22%, card2)); this fallback keeps the same hue while
+   mixing a little more of the (light) foreground so it stays readable on the
+   tinted surface when JS has not run yet. */
 :root {
-  --accent-text: color-mix(in srgb, var(--accent) 78%, var(--fg));
+  --accent-text: color-mix(in srgb, var(--accent) 72%, var(--fg));
   --r: 0px;
   --rs: 0px;
   --pad: 1rem;
@@ -192,6 +197,21 @@ body {
 .btn-primary {
   background: var(--accent);
   color: var(--accent-fg);
+  border-color: color-mix(in srgb, var(--accent) 55%, #000);
+  box-shadow:
+    inset 0 2px 0 rgba(255, 255, 255, 0.35),
+    inset 0 -3px 0 rgba(0, 0, 0, 0.28),
+    3px 3px 0 var(--pixel-shadow);
+}
+/* Selected-player picker button (draw page). Same pixel-art primary look as
+   .btn-primary, but the foreground uses --accent-fg-strong — a colour
+   guaranteed by the contrast resolver to sit clearly above the AA floor on the
+   solid accent fill for every theme × accent combination (the plain
+   --accent-fg could drop to ~4.7:1 on the default purple). Falls back to
+   --accent-fg when the driver hasn't run (no-JS). */
+.btn-selected {
+  background: var(--accent);
+  color: var(--accent-fg-strong, var(--accent-fg));
   border-color: color-mix(in srgb, var(--accent) 55%, #000);
   box-shadow:
     inset 0 2px 0 rgba(255, 255, 255, 0.35),

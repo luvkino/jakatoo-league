@@ -6,6 +6,7 @@ import { useChaos } from "@/components/ChaosEngine";
 import { useLeague } from "@/components/LeagueProvider";
 import { PixelIcon } from "@/components/PixelArt";
 import { Empty, PageTitle } from "@/components/ui";
+import { playerPickerButtonClass } from "@/lib/playerPicker";
 
 function randomInt(max: number): number {
   const buf = new Uint32Array(1);
@@ -152,7 +153,7 @@ export default function DrawPage() {
                   role="checkbox"
                   aria-checked={on}
                   onClick={() => toggle(p.id)}
-                  className={`btn ${on ? "btn-primary" : "opacity-70"}`}
+                  className={playerPickerButtonClass(on)}
                 >
                   {on ? "✓" : "○"} {p.name}
                 </button>
