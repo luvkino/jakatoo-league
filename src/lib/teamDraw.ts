@@ -6,12 +6,13 @@
  *  • It is shuffled exactly once with Fisher–Yates, driven by
  *    `crypto.getRandomValues()` with rejection sampling (no modulo bias).
  *    The insecure platform random API is never used in this module.
- *  • Cards are dealt sequentially from the top of that shuffled deck,
- *    one card per player, in player order. Nothing is re-drawn, replaced,
- *    reshuffled or "corrected" afterwards — the dealt cards are frozen.
- *  • Teams are a pure function of the dealt cards: players sharing a rank
- *    are teammates. Team sizes are whatever the cards produced; they are
- *    never balanced by moving players or changing cards.
+ *  • Cards are dealt face-up, one at a time, sequentially from the top of
+ *    that shuffled deck to exactly four players. Nothing is re-drawn,
+ *    replaced, reshuffled or "corrected" afterwards — dealt cards freeze.
+ *  • A team forms the moment a dealt card's rank matches a rank already
+ *    held by a *different*, still-unassigned player (never oneself).
+ *    Assigned players stop receiving cards; dealing continues to the
+ *    remaining players until the second team forms or the deck runs out.
  *
  * This module is pure (no React/DOM) so the whole distribution can be
  * unit-tested deterministically by injecting a random-index source.
@@ -29,16 +30,16 @@ import {
 export { RANKS, SUITS };
 export type { Card, Rank, Suit };
 
-export const MIN_PLAYERS = 2;
-export const MAX_PLAYERS = 12;
+/** The team splitter is a four-player card table: exactly 4 players. */
+export const REQUIRED_PLAYERS = 4;
 
-/** Animation timing (ms) — kept inside the ranges required by the design. */
+/** Fast animation timing (ms) — inside the ranges required by the design. */
 export const TEAM_DRAW_TIMING = {
-  shuffleMs: 1900, // 1.5–2.5 s
-  moveMs: 560, // 400–700 ms card travel
-  flipMs: 320, // 250–400 ms flip on landing
-  pauseMs: 450, // 350–600 ms between cards
-  discoveryMs: 1500, // pause + matching-rank highlight before results
+  shuffleMs: 850, // 700–1000 ms
+  moveMs: 250, // 200–300 ms card travel
+  flipMs: 180, // 150–200 ms flip on landing
+  pauseMs: 125, // 100–150 ms between cards
+  discoveryMs: 900, // quick, clear team-match discovery highlight
 } as const;
 
 /* ------------------------------------------------------- secure randomness */
@@ -119,36 +120,104 @@ export interface DealtCard {
 }
 
 export function validatePlayerCount(count: number): void {
-  if (!Number.isInteger(count) || count < MIN_PLAYERS || count > MAX_PLAYERS) {
+  if (!Number.isInteger(count) || count !== REQUIRED_PLAYERS) {
     throw new RangeError(
-      `team draw needs ${MIN_PLAYERS}–${MAX_PLAYERS} players, got ${count}`,
+      `team split needs exactly ${REQUIRED_PLAYERS} players, got ${count}`,
     );
   }
 }
 
+export interface FormedTeam {
+  /** The matching rank that formed this team (rank only — suit ignored). */
+  rank: Rank;
+  /** The two teammates, in original player order. A player never teams with themselves. */
+  playerIds: [string, string];
+  /** Ids of the two matching cards (the held card and the card just dealt). */
+  cardIds: [string, string];
+  /** Draw index of the card that completed the match. */
+  formedAtDrawIndex: number;
+}
+
+export interface TeamDrawResult {
+  /** Every card dealt, in exact draw order (deck[0], deck[1], …). */
+  dealt: DealtCard[];
+  /** Teams in the order they were formed (0, 1 or 2 of them). */
+  teams: FormedTeam[];
+  /** "complete" when both teams formed, "exhausted" when the deck ran out. */
+  status: "complete" | "exhausted";
+  cardsUsed: number;
+}
+
 /**
- * Deal one card per player, in player order, sequentially from the top of
- * the (already shuffled) deck: deck[0] → player 1, deck[1] → player 2, …
- * The deck is not mutated and dealt entries are frozen so a revealed card
- * can never be changed afterwards.
+ * Simulate one genuine team draw over an already-shuffled deck.
+ *
+ * Dealing rotates through the still-unassigned players in player order.
+ * After each card, if its rank matches any card held by a DIFFERENT
+ * unassigned player, those two form a team immediately and stop receiving
+ * cards (matching one's own cards never counts). The deck is consumed
+ * strictly from the top; it is never reshuffled or manipulated mid-draw.
  */
-export function dealDistribution(deck: readonly Card[], playerIds: readonly string[]): DealtCard[] {
+export function simulateTeamDraw(
+  deck: readonly Card[],
+  playerIds: readonly string[],
+): TeamDrawResult {
   validatePlayerCount(playerIds.length);
   if (new Set(playerIds).size !== playerIds.length) {
     throw new Error("team draw: duplicate player id");
   }
-  if (deck.length < playerIds.length) {
-    throw new Error(`team draw: deck has ${deck.length} cards for ${playerIds.length} players`);
+  const held = new Map<string, DealtCard[]>(playerIds.map((id) => [id, []]));
+  const unassigned = new Set(playerIds);
+  const dealt: DealtCard[] = [];
+  const teams: FormedTeam[] = [];
+  let current = 0; // index into playerIds
+
+  const nextUnassignedAfter = (idx: number): number => {
+    for (let step = 1; step <= playerIds.length; step++) {
+      const cand = (idx + step) % playerIds.length;
+      if (unassigned.has(playerIds[cand]!)) return cand;
+    }
+    return idx;
+  };
+
+  for (let drawIndex = 0; drawIndex < deck.length && unassigned.size > 0; drawIndex++) {
+    const playerId = playerIds[current]!;
+    const entry: DealtCard = Object.freeze({ drawIndex, playerId, card: deck[drawIndex]! });
+    dealt.push(entry);
+    held.get(playerId)!.push(entry);
+
+    // Rank-only match against a different, still-unassigned player.
+    const partner = playerIds.find(
+      (other) =>
+        other !== playerId &&
+        unassigned.has(other) &&
+        held.get(other)!.some((h) => h.card.r === entry.card.r),
+    );
+    if (partner) {
+      const heldMatch = held.get(partner)!.find((h) => h.card.r === entry.card.r)!;
+      const ordered = [...playerIds].filter((id) => id === partner || id === playerId);
+      teams.push(
+        Object.freeze({
+          rank: entry.card.r,
+          playerIds: [ordered[0]!, ordered[1]!] as [string, string],
+          cardIds: [heldMatch.card.id, entry.card.id] as [string, string],
+          formedAtDrawIndex: drawIndex,
+        }),
+      );
+      unassigned.delete(partner);
+      unassigned.delete(playerId);
+      if (unassigned.size === 0) break;
+    }
+    current = nextUnassignedAfter(current);
   }
-  return playerIds.map((playerId, i) =>
-    Object.freeze({ drawIndex: i, playerId, card: deck[i]! }),
-  );
+
+  return { dealt, teams, status: teams.length === 2 ? "complete" : "exhausted", cardsUsed: dealt.length };
 }
 
 /**
  * The exact animation plan: one step per dealt card, in draw order.
  * The UI must animate precisely this sequence — step i shows deck[i]
- * travelling to playerIds[i]. Nothing may be added, removed or reordered.
+ * travelling to its player. Nothing may be added, removed or reordered,
+ * and skipping the animation reveals this same sequence's result.
  */
 export interface AnimationStep {
   stepIndex: number;
@@ -161,73 +230,4 @@ export function planAnimationSequence(dealt: readonly DealtCard[]): AnimationSte
     if (d.drawIndex !== i) throw new Error("animation plan: draw sequence is not sequential");
     return { stepIndex: i, playerId: d.playerId, cardId: d.card.id };
   });
-}
-
-/* ------------------------------------------------------------ team building */
-
-export interface RankGroup {
-  rank: Rank;
-  /** Players holding this rank, in deal order. */
-  members: DealtCard[];
-  /** A team needs at least two matching ranks. */
-  isTeam: boolean;
-}
-
-/** Group dealt cards purely by rank (first-appearance order). */
-export function groupByRank(dealt: readonly DealtCard[]): RankGroup[] {
-  const byRank = new Map<Rank, DealtCard[]>();
-  for (const d of dealt) {
-    const list = byRank.get(d.card.r);
-    if (list) list.push(d);
-    else byRank.set(d.card.r, [d]);
-  }
-  return [...byRank.entries()].map(([rank, members]) => ({
-    rank,
-    members,
-    isTeam: members.length >= 2,
-  }));
-}
-
-export type TwoTeamStatus =
-  /** Exactly two ranks appeared and every player matched: two real teams. */
-  | "two-teams"
-  /** Some matches, but not exactly two teams (extra ranks / lone players). */
-  | "partial-matches"
-  /** Every player drew a different rank: no team could form. */
-  | "no-matches";
-
-export interface TwoTeamEvaluation {
-  status: TwoTeamStatus;
-  groups: RankGroup[];
-  /** Groups of ≥2 that genuinely form a team. */
-  teams: RankGroup[];
-  /** Players whose rank nobody else drew. */
-  unmatched: DealtCard[];
-  distinctRanks: number;
-  playerCount: number;
-  /** Two *equal* teams are arithmetically possible only for even counts. */
-  equalSplitPossible: boolean;
-  /** True only when the cards themselves produced exactly two full teams. */
-  formsTwoTeams: boolean;
-}
-
-/**
- * Evaluate a finished distribution for the default two-team mode.
- * This never "fixes" anything — it only reports what the cards produced.
- */
-export function evaluateTwoTeams(dealt: readonly DealtCard[]): TwoTeamEvaluation {
-  const groups = groupByRank(dealt);
-  const teams = groups.filter((g) => g.isTeam);
-  const unmatched = groups.filter((g) => !g.isTeam).flatMap((g) => g.members);
-  const formsTwoTeams = groups.length === 2 && teams.length === 2 && unmatched.length === 0;
-  return {
-    status: formsTwoTeams ? "two-teams" : teams.length > 0 ? "partial-matches" : "no-matches",
-    groups,
-    teams,
-    unmatched,
-    distinctRanks: groups.length,
-    playerCount: dealt.length,
-    equalSplitPossible: dealt.length % 2 === 0,
-    formsTwoTeams,
-  };
 }

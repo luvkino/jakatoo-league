@@ -1,41 +1,40 @@
 "use client";
 
 /**
- * تقسيم الفرق 🃏 — random team split by dealing a real shuffled deck.
+ * تقسيم الفرق 🃏 — four-player pixel-art card table.
  *
- * Transparency: the deck is shuffled ONCE (crypto Fisher–Yates, see
- * src/lib/teamDraw.ts) before any animation. The animation then plays back
- * exactly `planAnimationSequence(dealt)`: step i physically flies deck[i]
- * to player i and flips it face-up. No card is generated, swapped or
- * re-drawn during the animation, teams are grouped purely by dealt rank,
- * and Replay always builds a brand-new shuffled deck.
+ * Fairness: exactly four players from the existing دق الولد picker. On Start,
+ * one genuine 52-card deck is shuffled once (crypto Fisher–Yates, see
+ * src/lib/teamDraw.ts) and the whole draw is derived from that order by
+ * `simulateTeamDraw` — but it stays hidden and is only revealed as the
+ * animation deals each actual next card, face-up, one at a time. A team
+ * forms immediately when a dealt rank matches a rank held by a different
+ * unassigned player. Skip reveals that same, unchanged result instantly.
+ * No reshuffle mid-draw, no replaced cards, no prearranged matches.
  *
- * Sounds go through the existing Chaos `sfx` bus (playSfx), whose level is
- * driven centrally by AudioManager — the global mute silences them too.
+ * Sounds use the existing Chaos `sfx` bus (central AudioManager levels /
+ * global mute apply). The component never touches league data or the DB.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useChaos } from "@/components/ChaosEngine";
 import { PixelIcon } from "@/components/PixelArt";
-import { SUIT_GLYPH, SUIT_RED } from "@/lib/casino/cards";
+import { PixelCardBack, PixelPlayingCard } from "@/components/PixelPlayingCard";
 import type { PlayerRec } from "@/lib/stats";
 import {
   createShuffledDeck,
-  dealDistribution,
-  evaluateTwoTeams,
-  MAX_PLAYERS,
-  MIN_PLAYERS,
   planAnimationSequence,
+  REQUIRED_PLAYERS,
+  simulateTeamDraw,
   TEAM_DRAW_TIMING,
   type Card,
-  type DealtCard,
+  type TeamDrawResult,
 } from "@/lib/teamDraw";
 
-type Phase = "idle" | "shuffling" | "shuffled" | "dealing" | "discovering" | "done";
+type Phase = "idle" | "shuffling" | "dealing" | "discovering" | "done";
 
 interface FlyingCard {
   key: number;
-  card: Card;
   fromX: number;
   fromY: number;
   toX: number;
@@ -43,46 +42,24 @@ interface FlyingCard {
   started: boolean;
 }
 
-const TEAM_BADGES = ["chip chip-accent", "chip chip-good", "chip chip-bad", "chip chip-legendary"];
-
-function PlayingCardFace({ card, matched }: { card: Card; matched?: boolean }) {
-  const red = SUIT_RED[card.s];
-  const glyph = SUIT_GLYPH[card.s];
-  return (
-    <div
-      className={`td-card-face ${red ? "td-red" : "td-black"} ${matched ? "td-matched" : ""}`}
-      aria-label={`${card.r} ${glyph}`}
-    >
-      <span className="td-corner td-corner-top">
-        <b>{card.r}</b>
-        <i>{glyph}</i>
-      </span>
-      <span className="td-pip">{glyph}</span>
-      <span className="td-corner td-corner-bottom">
-        <b>{card.r}</b>
-        <i>{glyph}</i>
-      </span>
-    </div>
-  );
-}
+/** Table seats in order: top, right, bottom, left. */
+const SEATS = ["td-seat-top", "td-seat-right", "td-seat-bottom", "td-seat-left"] as const;
 
 export function TeamSplitter({
   players,
   onBusyChange,
 }: {
-  /** Players selected in the existing draw-page picker (no duplicate picker). */
+  /** The players selected in the existing draw-page picker (not duplicated). */
   players: PlayerRec[];
   onBusyChange?: (busy: boolean) => void;
 }) {
   const { sfx } = useChaos();
   const [phase, setPhase] = useState<Phase>("idle");
-  const [dealt, setDealt] = useState<DealtCard[]>([]);
-  const [revealed, setRevealed] = useState(0); // cards that have landed face-up
+  const [result, setResult] = useState<TeamDrawResult | null>(null);
+  const [revealed, setRevealed] = useState(0);
   const [flying, setFlying] = useState<FlyingCard | null>(null);
-  const [deckRemaining, setDeckRemaining] = useState(52);
   const [error, setError] = useState("");
 
-  const deckRef = useRef<Card[] | null>(null);
   const runTokenRef = useRef(0);
   const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
   const arenaRef = useRef<HTMLDivElement | null>(null);
@@ -93,14 +70,25 @@ export function TeamSplitter({
   const busy = phase === "shuffling" || phase === "dealing" || phase === "discovering";
   useEffect(() => onBusyChange?.(busy), [busy, onBusyChange]);
 
-  const playerCountOk = players.length >= MIN_PLAYERS && players.length <= MAX_PLAYERS;
-  const evaluation = useMemo(
-    () => (phase === "done" || phase === "discovering" ? evaluateTwoTeams(dealt) : null),
-    [phase, dealt],
+  const exactlyFour = players.length === REQUIRED_PLAYERS;
+  const dealt = useMemo(() => result?.dealt ?? [], [result]);
+  const visibleCards = useMemo(() => dealt.slice(0, revealed), [dealt, revealed]);
+  /** Teams already formed by the cards revealed so far. */
+  const shownTeams = useMemo(
+    () => (result?.teams ?? []).filter((t) => t.formedAtDrawIndex < revealed),
+    [result, revealed],
   );
-  const matchedRanks = useMemo(
-    () => new Set(evaluation?.teams.map((t) => t.rank) ?? []),
-    [evaluation],
+  const matchedCardIds = useMemo(
+    () => new Set(shownTeams.flatMap((t) => t.cardIds)),
+    [shownTeams],
+  );
+  const teamOfPlayer = useCallback(
+    (playerId: string) => shownTeams.findIndex((t) => t.playerIds.includes(playerId)),
+    [shownTeams],
+  );
+  const cardsOf = useCallback(
+    (playerId: string) => visibleCards.filter((d) => d.playerId === playerId),
+    [visibleCards],
   );
 
   const later = useCallback((fn: () => void, ms: number) => {
@@ -116,73 +104,63 @@ export function TeamSplitter({
 
   useEffect(() => cancelRun, [cancelRun]);
 
-  /** Shuffle a brand-new deck. The resulting order decides everything. */
-  const shuffle = useCallback(() => {
+  const finish = useCallback(
+    (res: TeamDrawResult, token: number) => {
+      if (runTokenRef.current !== token) return;
+      setPhase("discovering");
+      later(() => {
+        if (runTokenRef.current !== token) return;
+        setPhase("done");
+        if (res.status === "complete") sfx("teamReveal");
+        resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      }, TEAM_DRAW_TIMING.discoveryMs);
+    },
+    [later, sfx],
+  );
+
+  /** Start (or Shuffle Again): a brand-new shuffled deck and a new draw. */
+  const start = useCallback(() => {
     if (busy) return;
-    if (!playerCountOk) {
-      setError(`اختر من ${MIN_PLAYERS} إلى ${MAX_PLAYERS} لاعبين أولاً من قائمة اللاعبين بالأعلى.`);
+    if (!exactlyFour) {
+      setError(`تقسيم الفرق يحتاج بالضبط ${REQUIRED_PLAYERS} لاعبين مختارين من قرعة «دق الولد» بالأعلى.`);
       return;
     }
     cancelRun();
     setError("");
-    setDealt([]);
-    setRevealed(0);
     setFlying(null);
-    deckRef.current = createShuffledDeck(); // one genuine crypto shuffle
-    setDeckRemaining(52);
+    setRevealed(0);
+    // One genuine shuffle; the resulting order decides the entire draw.
+    const deck = createShuffledDeck();
+    const res = simulateTeamDraw(deck, players.map((p) => p.id));
+    setResult(res);
     setPhase("shuffling");
     sfx("cardShuffle");
     const token = runTokenRef.current;
-    later(() => {
-      if (runTokenRef.current !== token) return;
-      setPhase("shuffled");
-    }, TEAM_DRAW_TIMING.shuffleMs);
-  }, [busy, playerCountOk, cancelRun, later, sfx]);
-
-  /** Deal sequentially from the shuffled deck, animating the real draw order. */
-  const deal = useCallback(() => {
-    if (busy || phase !== "shuffled" || !deckRef.current) return;
-    const deck = deckRef.current;
-    let distribution: DealtCard[];
-    try {
-      distribution = dealDistribution(deck, players.map((p) => p.id));
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "تعذّر التوزيع.");
-      return;
-    }
-    const sequence = planAnimationSequence(distribution); // animation == draw order
-    setDealt(distribution);
-    setRevealed(0);
-    setPhase("dealing");
-    const token = runTokenRef.current;
+    const sequence = planAnimationSequence(res.dealt); // animation == draw order
 
     const step = (index: number) => {
       if (runTokenRef.current !== token) return;
       if (index >= sequence.length) {
-        // Brief pause, then highlight matching ranks, then reveal teams.
-        later(() => {
-          if (runTokenRef.current !== token) return;
-          setPhase("discovering");
-          if (evaluateTwoTeams(distribution).teams.length > 0) sfx("cardMatch");
-          later(() => {
-            if (runTokenRef.current !== token) return;
-            setPhase("done");
-            sfx("teamReveal");
-          }, TEAM_DRAW_TIMING.discoveryMs);
-        }, TEAM_DRAW_TIMING.pauseMs);
+        later(() => finish(res, token), TEAM_DRAW_TIMING.pauseMs);
         return;
       }
-
-      const current = distribution[index]!;
-      // Measure the real deck → player travel inside the arena.
+      const current = res.dealt[index]!;
       const arena = arenaRef.current?.getBoundingClientRect();
       const from = deckElRef.current?.getBoundingClientRect();
       const to = slotRefs.current.get(current.playerId)?.getBoundingClientRect();
       sfx("cardDraw");
+      const land = () => {
+        if (runTokenRef.current !== token) return;
+        setFlying(null);
+        setRevealed(index + 1); // flips face-up in front of its player, stays there
+        sfx("cardLand");
+        sfx("cardFlip");
+        if (res.teams.some((t) => t.formedAtDrawIndex === index)) sfx("cardMatch");
+        later(() => step(index + 1), TEAM_DRAW_TIMING.pauseMs);
+      };
       if (arena && from && to) {
         const flight: FlyingCard = {
           key: current.drawIndex,
-          card: current.card,
           fromX: from.left - arena.left + from.width / 2,
           fromY: from.top - arena.top + from.height / 2,
           toX: to.left - arena.left + to.width / 2,
@@ -196,57 +174,41 @@ export function TeamSplitter({
             setFlying((f) => (f && f.key === flight.key ? { ...f, started: true } : f));
           }),
         );
-        later(() => {
-          if (runTokenRef.current !== token) return;
-          setFlying(null);
-          setRevealed(index + 1); // lands and flips face-up in the player's slot
-          setDeckRemaining(52 - (index + 1));
-          sfx("cardLand");
-          sfx("cardFlip");
-          later(() => step(index + 1), TEAM_DRAW_TIMING.pauseMs);
-        }, TEAM_DRAW_TIMING.moveMs);
+        later(land, TEAM_DRAW_TIMING.moveMs);
       } else {
-        // No layout available: still reveal strictly one card at a time.
-        later(() => {
-          if (runTokenRef.current !== token) return;
-          setRevealed(index + 1);
-          setDeckRemaining(52 - (index + 1));
-          sfx("cardFlip");
-          later(() => step(index + 1), TEAM_DRAW_TIMING.pauseMs);
-        }, TEAM_DRAW_TIMING.moveMs);
+        later(land, TEAM_DRAW_TIMING.moveMs); // still strictly one card at a time
       }
     };
-    step(0);
-  }, [busy, phase, players, later, sfx]);
 
-  /** Replay = a completely new shuffle and a new random result. */
-  const replay = useCallback(() => {
-    if (busy) return;
+    later(() => {
+      if (runTokenRef.current !== token) return;
+      setPhase("dealing");
+      step(0);
+    }, TEAM_DRAW_TIMING.shuffleMs);
+  }, [busy, exactlyFour, cancelRun, later, sfx, players, finish]);
+
+  /** Skip: reveal the SAME draw's final state immediately — never re-draws. */
+  const skip = useCallback(() => {
+    if (!result || (phase !== "dealing" && phase !== "discovering" && phase !== "shuffling")) return;
     cancelRun();
-    deckRef.current = null;
-    setDealt([]);
-    setRevealed(0);
     setFlying(null);
-    setPhase("idle");
-    // Start the fresh shuffle immediately (new deck, new order).
-    later(() => shuffle(), 30);
-  }, [busy, cancelRun, later, shuffle]);
+    setRevealed(result.dealt.length);
+    setPhase("done");
+    if (result.status === "complete") sfx("teamReveal");
+  }, [result, phase, cancelRun, sfx]);
 
   const reset = useCallback(() => {
     cancelRun();
-    deckRef.current = null;
-    setDealt([]);
+    setResult(null);
     setRevealed(0);
     setFlying(null);
-    setDeckRemaining(52);
     setError("");
     setPhase("idle");
   }, [cancelRun]);
 
-  const cardFor = useCallback(
-    (playerId: string, index: number): DealtCard | null =>
-      index < revealed ? (dealt.find((d) => d.playerId === playerId) ?? null) : null,
-    [dealt, revealed],
+  const nameOf = useCallback(
+    (id: string) => players.find((p) => p.id === id)?.name ?? id,
+    [players],
   );
 
   return (
@@ -256,27 +218,20 @@ export function TeamSplitter({
           <PixelIcon name="cards" size={22} />
           <span>تقسيم الفرق 🃏</span>
         </h2>
-        <span className="chip chip-accent tnum">
-          {players.length} لاعب مختار
-        </span>
+        <span className="chip chip-accent tnum">{players.length} / {REQUIRED_PLAYERS} لاعبين</span>
       </div>
 
       <p className="mb-3 text-sm text-muted">
-        تُخلط مجموعة ورق حقيقية من ٥٢ بطاقة خلطاً عشوائياً آمناً، ثم تُوزَّع بطاقة واحدة لكل لاعب
-        بالترتيب من أعلى المجموعة. <b>اللاعبان اللذان يحملان نفس الرتبة</b> (مثل Q♠ و Q♦) يصبحان في
-        فريق واحد — الرتبة المتطابقة هي العامل الوحيد، ولا تُعدَّل أي بطاقة أو نتيجة بعد الخلط.
+        طاولة ورق لأربعة لاعبين: تُخلط مجموعة حقيقية من ٥٢ بطاقة خلطاً آمناً، ثم تُوزَّع البطاقات
+        مكشوفةً واحدةً تلو الأخرى من أعلى المجموعة وتبقى أمام صاحبها. أول لاعبَين يحملان{" "}
+        <b>نفس الرتبة</b> (الرتبة فقط، مثل بطاقتَي Q من لونين مختلفين) يكوّنان الفريق الأول فوراً، ويستمر التوزيع
+        للباقين حتى يتكوّن الفريق الثاني — دون أي إعادة خلط أو تبديل بطاقات.
       </p>
 
-      {!playerCountOk && (
+      {!exactlyFour && (
         <p role="alert" className="mb-2 text-sm font-bold text-bad">
-          اختر من {MIN_PLAYERS} إلى {MAX_PLAYERS} لاعبين من قائمة «اللاعبون المشاركون» بالأعلى لبدء
-          تقسيم الفرق.
-        </p>
-      )}
-      {playerCountOk && players.length % 2 !== 0 && phase !== "done" && (
-        <p className="mb-2 text-sm font-bold text-accent-text">
-          تنبيه: عدد اللاعبين فردي ({players.length})، لذلك لا يمكن تكوين فريقين <i>متساويين</i> —
-          ستتكوّن الفرق حسب الرتب الموزَّعة فعلياً كما هي، دون حذف أي لاعب أو اختراع بطاقات مطابقة.
+          اختر بالضبط {REQUIRED_PLAYERS} لاعبين من قائمة «اللاعبون المشاركون» بالأعلى — لا يمكن بدء
+          التقسيم بعدد مختلف.
         </p>
       )}
       {error && (
@@ -285,84 +240,70 @@ export function TeamSplitter({
         </p>
       )}
 
-      {/* Arena: deck in the centre, players around it. */}
-      <div ref={arenaRef} className="td-arena relative border-2 border-line bg-bg p-3 sm:p-4">
-        <div className="mb-4 flex flex-col items-center gap-1.5">
-          <div
-            ref={deckElRef}
-            className={`td-deck ${phase === "shuffling" ? "td-shuffling" : ""}`}
-            aria-label="مجموعة الورق"
-          >
-            <span className="td-deck-layer td-deck-l3" aria-hidden />
-            <span className="td-deck-layer td-deck-l2" aria-hidden />
-            <span className="td-deck-layer td-deck-l1 td-card-back" aria-hidden>
-              <PixelIcon name="cards" size={26} />
-            </span>
-          </div>
-          <span className="text-xs font-bold text-muted tnum">
-            {phase === "idle"
-              ? "المجموعة جاهزة للخلط"
-              : phase === "shuffling"
-                ? "جارٍ الخلط…"
-                : `بطاقات متبقية في المجموعة: ${deckRemaining}`}
-          </span>
-        </div>
-
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-          {players.map((p, i) => {
-            const landed = cardFor(p.id, i);
-            const isCurrent =
-              phase === "dealing" && dealt[revealed]?.playerId === p.id;
+      {/* ---- Card table: top / right / bottom / left around a clear centre ---- */}
+      <div ref={arenaRef} className="td-table-wrap relative border-2 border-line bg-bg p-2 sm:p-3">
+        <div className="td-table">
+          {(exactlyFour ? players : []).map((p, seat) => {
+            const teamIdx = teamOfPlayer(p.id);
+            const isCurrent = phase === "dealing" && dealt[revealed]?.playerId === p.id;
             return (
-              <div
-                key={p.id}
-                className={`flex flex-col items-center gap-1.5 border-2 p-2 ${
-                  isCurrent ? "border-accent bg-card2" : "td-player-slot border-line bg-card"
-                }`}
-              >
-                <span className="max-w-full truncate text-sm font-extrabold">{p.name}</span>
+              <div key={p.id} className={`td-seat ${SEATS[seat]} ${isCurrent ? "td-seat-current" : ""}`}>
+                <div className="flex max-w-full flex-wrap items-center justify-center gap-1.5">
+                  <span className="max-w-[9rem] truncate text-sm font-extrabold">{p.name}</span>
+                  {teamIdx >= 0 && (
+                    <span className={teamIdx === 0 ? "chip chip-accent" : "chip chip-good"}>
+                      الفريق {teamIdx + 1} ★
+                    </span>
+                  )}
+                </div>
                 <div
                   ref={(el) => {
                     if (el) slotRefs.current.set(p.id, el);
                     else slotRefs.current.delete(p.id);
                   }}
-                  className="td-slot grid place-items-center"
+                  className="td-hand"
+                  aria-label={`بطاقات ${p.name}`}
                 >
-                  {landed ? (
-                    <div
-                      key={landed.card.id}
-                      className="td-flip"
-                      data-draw-index={landed.drawIndex}
-                      data-card-id={landed.card.id}
-                    >
-                      <PlayingCardFace
-                        card={landed.card}
-                        matched={
-                          (phase === "discovering" || phase === "done") &&
-                          matchedRanks.has(landed.card.r)
-                        }
-                      />
-                    </div>
+                  {cardsOf(p.id).length === 0 ? (
+                    <span className="td-hand-empty">بانتظار البطاقات</span>
                   ) : (
-                    <div className="td-card-empty" aria-hidden>
-                      {isCurrent ? "…" : "؟"}
-                    </div>
+                    cardsOf(p.id).map((d) => (
+                      <span key={d.card.id} className="td-hand-card td-flip" data-card-id={d.card.id}>
+                        <PixelPlayingCard card={d.card} matched={matchedCardIds.has(d.card.id)} />
+                      </span>
+                    ))
                   )}
                 </div>
-                {landed && (
-                  <span className="text-[11px] font-bold text-muted">
-                    البطاقة رقم {landed.drawIndex + 1} في التوزيع
-                  </span>
-                )}
               </div>
             );
           })}
+
+          {/* Centre: the deck, kept clear for the dealing animation. */}
+          <div className="td-center">
+            <div ref={deckElRef} className={`td-deck ${phase === "shuffling" ? "td-shuffling" : ""}`}>
+              <span className="td-deck-layer td-deck-l3"><PixelCardBack /></span>
+              <span className="td-deck-layer td-deck-l2"><PixelCardBack /></span>
+              <span className="td-deck-layer td-deck-l1"><PixelCardBack /></span>
+            </div>
+            <span className="text-center text-[11px] font-bold text-muted tnum">
+              {phase === "idle"
+                ? "المجموعة جاهزة"
+                : phase === "shuffling"
+                  ? "جارٍ الخلط…"
+                  : `متبقّي ${52 - revealed} بطاقة · وُزّعت ${revealed}`}
+            </span>
+            {phase === "discovering" && (
+              <span className="text-center font-pixel-ar text-base font-extrabold text-accent-text">
+                اكتملت الفرق!
+              </span>
+            )}
+          </div>
         </div>
 
         {flying && (
           <div
             key={flying.key}
-            className="td-flying td-card-back"
+            className="td-flying"
             aria-hidden
             style={{
               transform: flying.started
@@ -371,56 +312,41 @@ export function TeamSplitter({
               transitionDuration: `${TEAM_DRAW_TIMING.moveMs}ms`,
             }}
           >
-            <PixelIcon name="cards" size={22} />
+            <PixelCardBack />
           </div>
         )}
       </div>
 
-      {/* Controls */}
+      {/* ---- Controls ---- */}
       <div className="mt-3 flex flex-wrap gap-2">
-        <button className="btn" onClick={shuffle} disabled={busy || !playerCountOk}>
-          <PixelIcon name="dice" size={18} />
-          <span>{phase === "shuffling" ? "جارٍ الخلط…" : "خلط الورق"}</span>
-        </button>
-        <button
-          className="btn btn-primary"
-          onClick={deal}
-          disabled={busy || phase !== "shuffled"}
-        >
+        <button className="btn btn-primary" onClick={start} disabled={busy || !exactlyFour}>
           <PixelIcon name="cards" size={18} />
-          <span>{phase === "dealing" ? "جارٍ التوزيع…" : "بدء التوزيع"}</span>
+          <span>{phase === "shuffling" ? "جارٍ الخلط…" : phase === "dealing" ? "جارٍ التوزيع…" : "بدء تقسيم الفرق"}</span>
         </button>
-        {(phase === "done" || phase === "shuffled") && !busy && (
-          <button className="btn" onClick={replay}>
-            <span>إعادة التوزيع (خلط جديد)</span>
-          </button>
-        )}
-        {phase !== "idle" && (
-          <button className="btn" onClick={reset} disabled={phase === "dealing" || phase === "shuffling"}>
-            <span>إعادة تعيين</span>
-          </button>
-        )}
-        {phase === "done" && (
-          <button
-            className="btn"
-            onClick={() => resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}
-          >
-            <span>عرض الفرق النهائية</span>
-          </button>
-        )}
+        <button className="btn" onClick={skip} disabled={!busy || !result}>
+          <span>تخطي الحركة</span>
+        </button>
+        <button className="btn" onClick={start} disabled={busy || !exactlyFour}>
+          <span>خلط من جديد</span>
+        </button>
+        <button className="btn" onClick={reset} disabled={phase === "idle" && !result}>
+          <span>إعادة تعيين</span>
+        </button>
       </div>
       {busy && (
         <p className="mt-2 text-xs font-bold text-muted">
-          التوزيع جارٍ — لا يمكن تغيير اللاعبين المختارين أو بدء توزيع آخر حتى ينتهي.
+          التوزيع جارٍ — الأزرار معطّلة حتى لا يعمل أكثر من توزيع واحد في الوقت نفسه، ولا يمكن تغيير
+          اللاعبين المختارين الآن.
         </p>
       )}
 
-      {/* Discovery + final teams */}
-      {evaluation && (phase === "discovering" || phase === "done") && (
+      {/* ---- Final teams (cards stay visible on the table above) ---- */}
+      {phase === "done" && result && (
         <div ref={resultsRef} className="mt-4 border-t-2 border-line pt-3" aria-live="polite">
-          {phase === "discovering" ? (
-            <p className="text-center font-pixel-ar text-xl font-extrabold text-accent-text">
-              جارٍ اكتشاف الرتب المتطابقة…
+          {result.status === "exhausted" ? (
+            <p role="alert" className="text-sm font-bold text-bad">
+              انتهت المجموعة (٥٢ بطاقة) قبل أن يتكوّن الفريقان من رتب متطابقة. لم تُعدَّل أي بطاقة —
+              اضغط «خلط من جديد» لمحاولة جديدة بمجموعة مخلوطة حديثاً.
             </p>
           ) : (
             <>
@@ -428,51 +354,28 @@ export function TeamSplitter({
                 <PixelIcon name="trophy" size={18} />
                 <span>الفرق النهائية</span>
               </h3>
-
-              {evaluation.status === "two-teams" ? (
-                <p className="mb-2 text-sm font-bold text-good">
-                  تشكّل فريقان من البطاقات الموزَّعة فعلياً
-                  {evaluation.teams[0]!.members.length !== evaluation.teams[1]!.members.length &&
-                    " — حجما الفريقين غير متساويين لأن هذا ما أنتجته الرتب، ولم يتم نقل أي لاعب لموازنتهما"}
-                  .
-                </p>
-              ) : evaluation.status === "partial-matches" ? (
-                <p role="alert" className="mb-2 text-sm font-bold text-bad">
-                  لم يتشكّل فريقان فقط من هذه التوزيعة: ظهرت {evaluation.distinctRanks} رتب مختلفة
-                  بين {evaluation.playerCount} لاعبين، فالرتب المتطابقة وحدها لا تكفي لفريقين.
-                  هذه هي النتيجة الحقيقية للخلط — والبديل الصحيح هو «إعادة التوزيع (خلط جديد)»
-                  بمجموعة جديدة، وليس تعديل البطاقات.
-                </p>
-              ) : (
-                <p role="alert" className="mb-2 text-sm font-bold text-bad">
-                  كل لاعب سحب رتبة مختلفة، فلم يتشكّل أي فريق من التطابق في هذه التوزيعة.
-                  هذه نتيجة حقيقية للخلط العشوائي — جرّب «إعادة التوزيع (خلط جديد)» لمحاولة جديدة
-                  عادلة.
-                </p>
-              )}
-
               <div className="grid gap-3 sm:grid-cols-2">
-                {evaluation.teams.map((team, ti) => (
-                  <div key={team.rank} className="td-team border-2 border-line bg-card2 p-3">
+                {result.teams.map((team, ti) => (
+                  <div key={team.rank + ti} className="td-team border-2 border-line bg-card2 p-3">
                     <div className="mb-2 flex items-center justify-between gap-2">
-                      <span className="font-pixel-ar text-lg font-extrabold">
-                        الفريق {ti + 1} — رتبة {team.rank}
-                      </span>
-                      <span className={TEAM_BADGES[ti % TEAM_BADGES.length]}>
-                        {team.members.length} لاعبين
+                      <span className="font-pixel-ar text-lg font-extrabold">الفريق {ti + 1}</span>
+                      <span className={ti === 0 ? "chip chip-accent" : "chip chip-good"}>
+                        تطابق رتبة {team.rank}
                       </span>
                     </div>
                     <ul className="flex flex-col gap-2">
-                      {team.members.map((m) => {
-                        const player = players.find((p) => p.id === m.playerId);
+                      {team.playerIds.map((pid) => {
+                        const matchCard = result.dealt.find(
+                          (d) => d.playerId === pid && team.cardIds.includes(d.card.id),
+                        );
                         return (
-                          <li key={m.playerId} className="flex items-center gap-2">
-                            <PlayingCardFace card={m.card} matched />
-                            <span className="font-bold">{player?.name ?? m.playerId}</span>
-                            <span className="text-xs text-muted">
-                              ({m.card.r}
-                              {SUIT_GLYPH[m.card.s]})
-                            </span>
+                          <li key={pid} className="flex items-center gap-2">
+                            {matchCard && (
+                              <span className="td-result-card">
+                                <PixelPlayingCard card={matchCard.card} matched />
+                              </span>
+                            )}
+                            <span className="font-bold">{nameOf(pid)}</span>
                           </li>
                         );
                       })}
@@ -480,16 +383,10 @@ export function TeamSplitter({
                   </div>
                 ))}
               </div>
-
-              {evaluation.unmatched.length > 0 && (
-                <p className="mt-2 text-sm text-muted">
-                  لاعبون بلا فريق (رتب وحيدة لم تتطابق مع أحد):{" "}
-                  {evaluation.unmatched
-                    .map((m) => `${players.find((p) => p.id === m.playerId)?.name ?? m.playerId} (${m.card.r}${SUIT_GLYPH[m.card.s]})`)
-                    .join("، ")}
-                  .
-                </p>
-              )}
+              <p className="mt-2 text-xs text-muted">
+                وُزّعت {result.cardsUsed} بطاقة من المجموعة المخلوطة. البطاقات كلها ما زالت ظاهرة على
+                الطاولة بالأعلى، والبطاقات المتطابقة مميّزة بتوهّج.
+              </p>
             </>
           )}
         </div>
