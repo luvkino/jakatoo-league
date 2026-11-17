@@ -526,6 +526,79 @@ button:focus-visible {
 }
 .egg-card-deal { animation: egg-card-deal 0.3s steps(4) backwards; }
 
+/* ---- Team splitter (تقسيم الفرق 🃏) playing cards ---- */
+.td-slot { width: clamp(3.4rem, 14vw, 4.3rem); height: calc(clamp(3.4rem, 14vw, 4.3rem) * 1.42); }
+.td-card-face {
+  position: relative;
+  width: clamp(3.4rem, 14vw, 4.3rem);
+  height: calc(clamp(3.4rem, 14vw, 4.3rem) * 1.42);
+  background: #f8fafc;
+  border: 2px solid #334155;
+  border-radius: 3px;
+  box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.45), inset 0 0 0 2px #ffffff;
+}
+.td-card-face.td-red { color: #dc2626; }
+.td-card-face.td-black { color: #1e293b; }
+.td-corner { position: absolute; display: flex; flex-direction: column; align-items: center; line-height: 1; font-style: normal; }
+.td-corner b { font-size: 0.85rem; font-weight: 800; }
+.td-corner i { font-style: normal; font-size: 0.7rem; }
+.td-corner-top { top: 0.18rem; inset-inline-start: 0.28rem; }
+.td-corner-bottom { bottom: 0.18rem; inset-inline-end: 0.28rem; transform: rotate(180deg); }
+.td-pip { position: absolute; inset: 0; display: grid; place-items: center; font-size: 1.7rem; }
+.td-card-empty {
+  width: 100%; height: 100%;
+  display: grid; place-items: center;
+  border: 2px dashed var(--line); color: var(--muted);
+  font-weight: 800; background: color-mix(in srgb, var(--card2) 60%, transparent);
+}
+.td-card-back, .td-deck-layer {
+  background: repeating-linear-gradient(45deg, #1d4ed8 0 4px, #1e40af 4px 8px);
+  border: 2px solid #1e3a8a;
+  box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.45), inset 0 0 0 2px #3b82f6;
+  color: #dbeafe;
+}
+.td-deck { position: relative; width: clamp(3.4rem, 14vw, 4.3rem); height: calc(clamp(3.4rem, 14vw, 4.3rem) * 1.42); }
+.td-deck-layer { position: absolute; inset: 0; display: grid; place-items: center; }
+.td-deck-l1 { transform: translate(0, 0); }
+.td-deck-l2 { transform: translate(-4px, 4px); opacity: 0.85; }
+.td-deck-l3 { transform: translate(-8px, 8px); opacity: 0.65; }
+@keyframes td-shuffle-jitter {
+  0%, 100% { transform: translate(0, 0) rotate(0deg); }
+  20% { transform: translate(-7px, -3px) rotate(-7deg); }
+  40% { transform: translate(6px, 2px) rotate(6deg); }
+  60% { transform: translate(-5px, 4px) rotate(-4deg); }
+  80% { transform: translate(7px, -4px) rotate(5deg); }
+}
+.td-shuffling .td-deck-l1 { animation: td-shuffle-jitter 0.32s steps(3) infinite; }
+.td-shuffling .td-deck-l2 { animation: td-shuffle-jitter 0.32s steps(3) infinite reverse; }
+.td-shuffling .td-deck-l3 { animation: td-shuffle-jitter 0.38s steps(3) infinite; }
+.td-flying {
+  position: absolute; top: 0; left: 0; z-index: 20;
+  width: clamp(3.4rem, 14vw, 4.3rem); height: calc(clamp(3.4rem, 14vw, 4.3rem) * 1.42);
+  display: grid; place-items: center; pointer-events: none;
+  transition-property: transform; transition-timing-function: ease-in-out;
+  will-change: transform;
+}
+@keyframes td-flip-in {
+  from { transform: perspective(600px) rotateY(90deg) scale(0.92); opacity: 0.4; }
+  to { transform: perspective(600px) rotateY(0deg) scale(1); opacity: 1; }
+}
+.td-flip { animation: td-flip-in 0.32s ease-out; }
+@keyframes td-match-glow {
+  0%, 100% { box-shadow: 2px 2px 0 rgba(0,0,0,0.45), 0 0 0 2px var(--accent); }
+  50% { box-shadow: 2px 2px 0 rgba(0,0,0,0.45), 0 0 14px 3px var(--accent); }
+}
+.td-matched { animation: td-match-glow 0.75s steps(4) infinite; }
+@keyframes td-team-in { from { transform: translateY(10px); opacity: 0; } to { transform: none; opacity: 1; } }
+.td-team { animation: td-team-in 0.35s steps(3) backwards; box-shadow: 3px 3px 0 var(--pixel-shadow); }
+.td-team .td-card-face { width: 2.2rem; height: calc(2.2rem * 1.42); }
+.td-team .td-pip { font-size: 1rem; }
+.td-team .td-corner b { font-size: 0.6rem; }
+.td-team .td-corner i { font-size: 0.5rem; }
+@media (prefers-reduced-motion: reduce) {
+  .td-shuffling .td-deck-layer, .td-matched { animation-duration: 0.6s; }
+}
+
 /* ---- Developer room CRT terminal ---- */
 .egg-crt { box-shadow: inset 0 0 3rem rgba(34, 197, 94, 0.14); }
 .egg-term-line {
