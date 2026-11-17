@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useChaos } from "@/components/ChaosEngine";
 import { useLeague } from "@/components/LeagueProvider";
 import { PixelIcon } from "@/components/PixelArt";
+import { TeamSplitter } from "@/components/TeamSplitter";
 import { Empty, PageTitle } from "@/components/ui";
 import { playerPickerButtonClass } from "@/lib/playerPicker";
 
@@ -25,6 +26,7 @@ export default function DrawPage() {
   const [spinStep, setSpinStep] = useState(0);
   const [winner, setWinner] = useState<string | null>(null);
   const [spinning, setSpinning] = useState(false);
+  const [splitterBusy, setSplitterBusy] = useState(false);
   const [err, setErr] = useState("");
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -33,7 +35,9 @@ export default function DrawPage() {
   const chosen = useMemo(() => activePlayers.filter((p) => !off.has(p.id)), [activePlayers, off]);
 
   function toggle(id: string) {
-    if (spinning) return;
+    // Locked while either the dealer lottery or a card distribution runs,
+    // so the players being dealt to can never change mid-distribution.
+    if (spinning || splitterBusy) return;
     setWinner(null);
     setOff((s) => {
       const n = new Set(s);
@@ -124,12 +128,12 @@ export default function DrawPage() {
             </span>
           </h2>
           <div className="flex gap-2">
-            <button className="btn btn-sm" onClick={() => !spinning && setOff(new Set())}>
+            <button className="btn btn-sm" onClick={() => !spinning && !splitterBusy && setOff(new Set())}>
               تحديد الكل
             </button>
             <button
               className="btn btn-sm"
-              onClick={() => !spinning && setOff(new Set(activePlayers.map((p) => p.id)))}
+              onClick={() => !spinning && !splitterBusy && setOff(new Set(activePlayers.map((p) => p.id)))}
             >
               إلغاء الكل
             </button>
@@ -162,6 +166,10 @@ export default function DrawPage() {
           </div>
         )}
       </div>
+
+      {/* تقسيم الفرق 🃏 — directly below the dealer lottery, reusing the
+          same selected players (`chosen`) from the picker above. */}
+      <TeamSplitter players={chosen} onBusyChange={setSplitterBusy} />
     </div>
   );
 }

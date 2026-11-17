@@ -13,7 +13,13 @@ export type SfxKind =
   | "epic"
   | "legendary"
   | "drawTick"
-  | "drawWin";
+  | "drawWin"
+  | "cardShuffle"
+  | "cardDraw"
+  | "cardLand"
+  | "cardFlip"
+  | "cardMatch"
+  | "teamReveal";
 
 let ctx: AudioContext | null = null;
 let unlocked = false;
@@ -109,8 +115,20 @@ function noiseBurst(ac: AudioContext, duration = 0.24, delay = 0, gainLevel = 0.
   src.start(ac.currentTime + delay);
 }
 
+/** Card sounds fire in quick sequences; never let the same one overlap itself. */
+const lastCardSfxAt = new Map<SfxKind, number>();
+const CARD_SFX_MIN_GAP_MS = 90;
+
 export function playSfx(kind: SfxKind, enabled: boolean) {
+  // `enabled` is the app sound switch; `sfxLevel` is driven centrally by the
+  // AudioManager (master x SFX sliders, forced to 0 by the global mute), so
+  // card sounds respect the single global mute like every other bus.
   if (!enabled || !unlocked || sfxLevel <= 0.001) return;
+  if (kind.startsWith("card") || kind === "teamReveal") {
+    const now = performance.now();
+    if (now - (lastCardSfxAt.get(kind) ?? -Infinity) < CARD_SFX_MIN_GAP_MS) return;
+    lastCardSfxAt.set(kind, now);
+  }
   const ac = getCtx();
   if (!ac || ac.state === "suspended") return;
 
@@ -160,6 +178,31 @@ export function playSfx(kind: SfxKind, enabled: boolean) {
         tone(ac, f, 0.13, i * 0.06, "square", 0.065),
       );
       noiseBurst(ac, 0.16, 0.02, 0.06);
+      break;
+    case "cardShuffle":
+      // Original synthesized riffle: a few short filtered noise bursts.
+      noiseBurst(ac, 0.1, 0, 0.07);
+      noiseBurst(ac, 0.1, 0.14, 0.06);
+      noiseBurst(ac, 0.12, 0.28, 0.07);
+      noiseBurst(ac, 0.16, 0.44, 0.05);
+      break;
+    case "cardDraw":
+      noiseBurst(ac, 0.07, 0, 0.055);
+      tone(ac, 340, 0.06, 0, "triangle", 0.04, 520);
+      break;
+    case "cardLand":
+      tone(ac, 150, 0.07, 0, "triangle", 0.07, 90);
+      break;
+    case "cardFlip":
+      noiseBurst(ac, 0.05, 0, 0.05);
+      tone(ac, 760, 0.05, 0.01, "square", 0.04, 980);
+      break;
+    case "cardMatch":
+      [659.25, 880, 1318.51].forEach((f, i) => tone(ac, f, 0.1, i * 0.07, "square", 0.055));
+      break;
+    case "teamReveal":
+      [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => tone(ac, f, 0.12, i * 0.08, "square", 0.06));
+      noiseBurst(ac, 0.14, 0.05, 0.04);
       break;
     case "legendary":
       [523.25, 659.25, 783.99, 1046.5, 1318.51, 1567.98].forEach((f, i) =>
